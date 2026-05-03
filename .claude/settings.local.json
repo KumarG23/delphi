@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth *)",
+      "Bash(git push *)",
+      "Bash(npx tsc *)",
+      "Bash(dir C:\\\\code\\\\delphi *)",
+      "Bash(Test-Path C:\\\\code\\\\delphi\\\\scripts *)",
+      "PowerShell(New-Item *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
