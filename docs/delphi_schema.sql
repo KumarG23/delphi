@@ -274,7 +274,8 @@ create index idx_events_user_date on events(user_id, event_date desc);
 -- ═══════════════════════════════════════════════════════════════════════════
 
 -- Latest active snapshot per account.
-create or replace view v_latest_snapshot_per_account as
+create or replace view v_latest_snapshot_per_account
+with (security_invoker = true) as
 select distinct on (s.account_id)
   s.account_id, s.user_id, s.snapshot_date, s.balance, s.apr, s.apy,
   s.min_payment, s.payment_due_date, s.entered_at
@@ -284,7 +285,8 @@ order by s.account_id, s.snapshot_date desc, s.entered_at desc;
 
 
 -- Net worth history per user.
-create or replace view v_net_worth_history as
+create or replace view v_net_worth_history
+with (security_invoker = true) as
 with all_dates as (
   select distinct user_id, snapshot_date from balance_snapshots where is_active
 ),
@@ -312,7 +314,8 @@ group by user_id, snapshot_date;
 
 
 -- Account summary with latest reading.
-create or replace view v_account_summary as
+create or replace view v_account_summary
+with (security_invoker = true) as
 select
   a.id, a.user_id, a.name, a.nickname, a.category, a.type, a.institution,
   a.display_color, a.is_active,
@@ -327,7 +330,8 @@ left join v_latest_snapshot_per_account ls on ls.account_id = a.id;
 
 -- ── NEW · Monthly spending breakdown by category ──
 -- Powers the "where did my money go this month" pie/bar chart.
-create or replace view v_monthly_spending_by_category as
+create or replace view v_monthly_spending_by_category
+with (security_invoker = true) as
 select
   t.user_id,
   date_trunc('month', t.transaction_date)::date as month,
@@ -349,7 +353,8 @@ comment on view v_monthly_spending_by_category is 'Per-month, per-category total
 
 -- ── NEW · Monthly cash flow (income minus expense) ──
 -- Powers the "are you net positive this month" hero number on the spending tab.
-create or replace view v_monthly_cashflow as
+create or replace view v_monthly_cashflow
+with (security_invoker = true) as
 select
   user_id,
   date_trunc('month', transaction_date)::date as month,
@@ -373,7 +378,8 @@ comment on view v_monthly_cashflow is 'Income, expense, and net per month per us
 --                         income  → balance DOWN (you paid down debt)
 --   cash / investment:    expense → balance DOWN (money left)
 --                         income  → balance UP   (money in)
-create or replace view v_account_computed_balance as
+create or replace view v_account_computed_balance
+with (security_invoker = true) as
 with tx_outflow as (
   select
     t.account_id,
