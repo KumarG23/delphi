@@ -8,7 +8,16 @@
       "Bash(Test-Path C:\\\\code\\\\delphi\\\\scripts *)",
       "PowerShell(New-Item *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git stash *)",
+      "Bash(npx expo *)",
+      "Bash(echo \"started pid=$!\")",
+      "Bash(curl -s -o /tmp/expo-page.html -w \"HTTP %{http_code}\\\\n\" http://localhost:8088)",
+      "Read(//tmp/**)",
+      "Bash(pkill -f \"expo start --web\")",
+      "Bash(grep *)",
+      "Bash(rm -f /tmp/expo-build.log)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8089)"
     ]
   }
 }
