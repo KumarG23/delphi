@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useProfile, useUpdateProfile } from '@/lib/settings';
 import {
@@ -17,6 +19,7 @@ import {
   requestNotificationPermissions,
 } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/auth';
 import {
   components,
   fontSize,
@@ -48,10 +51,14 @@ function Divider() {
 export default function SettingsScreen() {
   const { data: profile, isLoading } = useProfile();
   const updateProfile = useUpdateProfile();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const userEmail = useAuthStore((s) => s.session?.user?.email ?? null);
 
   // Profile state
   const [displayName, setDisplayName] = useState('');
   const [nameEdited, setNameEdited] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   // Reminder state
   const [cadence, setCadence] = useState<ReminderCadence | null>(null);
@@ -131,6 +138,18 @@ export default function SettingsScreen() {
     }
   }
 
+  async function performSignOut() {
+    setSigningOut(true);
+    try {
+      await supabase.auth.signOut();
+      queryClient.clear();
+      router.replace('/(auth)/sign-in');
+    } catch (e: any) {
+      setSigningOut(false);
+      Alert.alert('Error', e?.message ?? 'Could not sign out.');
+    }
+  }
+
   function handleSignOut() {
     Alert.alert(
       'Sign out?',
@@ -140,7 +159,7 @@ export default function SettingsScreen() {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => supabase.auth.signOut(),
+          onPress: performSignOut,
         },
       ],
     );
@@ -163,6 +182,14 @@ export default function SettingsScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
         >
+          {/* ── Account card ── */}
+          <View style={styles.card}>
+            <CardLabel label="SIGNED IN AS" />
+            <Text style={styles.emailText} numberOfLines={1}>
+              {userEmail ?? '—'}
+            </Text>
+          </View>
+
           {/* ── Profile card ── */}
           <View style={styles.card}>
             <CardLabel label="DISPLAY NAME" />
@@ -282,10 +309,19 @@ export default function SettingsScreen() {
           {/* ── Sign Out card ── */}
           <View style={styles.card}>
             <Pressable
-              style={({ pressed }) => [styles.dangerBtn, pressed && { opacity: 0.8 }]}
+              style={({ pressed }) => [
+                styles.dangerBtn,
+                pressed && { opacity: 0.8 },
+                signingOut && { opacity: 0.6 },
+              ]}
               onPress={handleSignOut}
+              disabled={signingOut}
             >
-              <Text style={styles.dangerBtnText}>Sign Out</Text>
+              {signingOut ? (
+                <ActivityIndicator color={T.danger} />
+              ) : (
+                <Text style={styles.dangerBtnText}>Sign Out</Text>
+              )}
             </Pressable>
           </View>
 
@@ -336,6 +372,12 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     letterSpacing: letterSpacing.widest,
     color: T.textMuted,
+  },
+  emailText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.medium,
+    color: T.text,
+    letterSpacing: letterSpacing.tight,
   },
   fieldLabel: {
     fontSize: fontSize.sm,

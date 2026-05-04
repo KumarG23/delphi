@@ -51,18 +51,37 @@ function RootLayoutNav() {
 
   // Subscribe to auth state once on mount
   useEffect(() => {
-    // Grab any existing session from storage
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setInitialized(true);
-    });
+    let mounted = true;
+
+    (async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (!mounted) return;
+        if (error) {
+          // Self-heal a corrupted session — clear it and force sign-in.
+          await supabase.auth.signOut().catch(() => {});
+          setSession(null);
+        } else {
+          setSession(session);
+        }
+      } catch {
+        if (!mounted) return;
+        await supabase.auth.signOut().catch(() => {});
+        setSession(null);
+      } finally {
+        if (mounted) setInitialized(true);
+      }
+    })();
 
     // Keep session in sync as the user signs in/out
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   // Redirect whenever session or route changes
