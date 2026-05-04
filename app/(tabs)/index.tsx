@@ -27,8 +27,10 @@ import {
 } from '@/constants/tokens';
 import { useNetWorthHistory } from '@/lib/dashboard';
 import { useAccounts, ACCOUNT_TYPE_LABELS, CATEGORY_LABELS } from '@/lib/accounts';
+import { useProfile } from '@/lib/settings';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
+import DelphiAvatar from '@/components/DelphiAvatar';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -127,6 +129,18 @@ export default function DashboardScreen() {
   // Data
   const { data: netWorthHistory } = useNetWorthHistory();
   const { data: accounts } = useAccounts();
+  const { data: profile } = useProfile();
+
+  // Greeting: time-of-day + display name
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    const period =
+      hour >= 5 && hour < 12 ? 'Good morning'
+      : hour >= 12 && hour < 18 ? 'Good afternoon'
+      : 'Good evening';
+    const name = profile?.display_name?.trim();
+    return name ? `${period}, ${name}` : 'Hello';
+  }, [profile?.display_name]);
 
   // Chart press state
   const { state: chartState, isActive: chartIsActive } = useChartPressState({
@@ -223,7 +237,17 @@ export default function DashboardScreen() {
 
           {/* ── 1. Header ───────────────────────────────────────────────── */}
           <View style={styles.header}>
-            <Text style={styles.wordmark}>Delphi</Text>
+            <View style={styles.headerLeft}>
+              <View style={styles.avatarTile}>
+                <DelphiAvatar size={28} />
+              </View>
+              <View>
+                <Text style={styles.wordmark}>Delphi</Text>
+                <Text style={styles.greeting} numberOfLines={1}>
+                  {greeting}
+                </Text>
+              </View>
+            </View>
             <TouchableOpacity
               onPress={() => setBulkOpen(true)}
               style={styles.headerIcon}
@@ -496,11 +520,31 @@ const styles = StyleSheet.create({
     paddingTop: space['10'],
     paddingBottom: space['8'],
   },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space['5'],
+  },
+  avatarTile: {
+    width: components.avatar.md,
+    height: components.avatar.md,
+    borderRadius: radius.lg,
+    backgroundColor: T.cardSoft,
+    borderWidth: 1,
+    borderColor: T.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   wordmark: {
-    fontSize: fontSize['2xl'],
+    fontSize: fontSize.xl,
     fontWeight: fontWeight.extrabold,
-    color: T.primary,
-    letterSpacing: letterSpacing.tightest,
+    color: T.text,
+    letterSpacing: letterSpacing.tight,
+  },
+  greeting: {
+    fontSize: fontSize.micro,
+    color: T.textMuted,
+    marginTop: -space['1'],
   },
   headerIcon: {
     width: components.hitTarget,
