@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -15,6 +14,7 @@ import {
 
 import { useAccounts, ACCOUNT_TYPE_LABELS, CATEGORY_LABELS } from '@/lib/accounts';
 import { useLogBalance } from '@/lib/snapshots';
+import { infoDialog } from '@/lib/dialog';
 import {
   categoryColor,
   components,
@@ -89,7 +89,7 @@ export function BulkLogSheet({ visible, onClose }: Props) {
     const raw = balance.trim().replace(/[^0-9.]/g, '');
     const parsed = parseFloat(raw);
     if (!raw || isNaN(parsed) || parsed < 0) {
-      Alert.alert('Invalid balance', 'Please enter a valid balance amount.');
+      await infoDialog('Invalid balance', 'Please enter a valid balance amount.');
       return;
     }
 
@@ -118,7 +118,7 @@ export function BulkLogSheet({ visible, onClose }: Props) {
         resetFields();
       }
     } catch (e) {
-      Alert.alert('Error', (e as Error).message);
+      await infoDialog('Error', (e as Error).message);
     }
   }
 

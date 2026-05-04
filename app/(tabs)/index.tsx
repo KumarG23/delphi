@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,6 +10,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAnimatedReaction, useSharedValue, runOnJS } from 'react-native-reanimated';
 import { CartesianChart, Area, Line, useChartPressState } from 'victory-native';
+
+import { infoDialog } from '@/lib/dialog';
 
 import {
   categoryColor,
@@ -442,9 +443,9 @@ export default function DashboardScreen() {
           {/* ── 7. Ask Delphi CTA ───────────────────────────────────────── */}
           <TouchableOpacity
             style={styles.delphiCard}
-            onPress={() =>
-              Alert.alert('Coming soon', 'Ask Delphi is coming in Phase 2.')
-            }
+            onPress={() => {
+              infoDialog('Coming soon', 'Ask Delphi is coming in Phase 2.');
+            }}
             activeOpacity={0.8}
           >
             <View style={styles.delphiLeft}>

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 
 import { useArchiveAccount, useUpdateAccount } from '@/lib/accounts';
+import { confirmDialog, infoDialog } from '@/lib/dialog';
 import {
   categoryColor,
   components,
@@ -53,37 +53,30 @@ export function EditAccountSheet({ account, visible, onClose }: Props) {
 
   async function handleSave() {
     if (!name.trim()) {
-      Alert.alert('Name required', 'Please enter an account name.');
+      await infoDialog('Name required', 'Please enter an account name.');
       return;
     }
     try {
       await updateAccount.mutateAsync({ id: account.id, name, nickname, institution });
       onClose();
     } catch (e) {
-      Alert.alert('Error', (e as Error).message);
+      await infoDialog('Error', (e as Error).message);
     }
   }
 
-  function handleArchive() {
-    Alert.alert(
+  async function handleArchive() {
+    const confirmed = await confirmDialog(
       'Archive Account',
       `Archive "${account.nickname ?? account.name}"? It will be hidden from your dashboard but your history is preserved.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Archive',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await archiveAccount.mutateAsync(account.id);
-              onClose();
-            } catch (e) {
-              Alert.alert('Error', (e as Error).message);
-            }
-          },
-        },
-      ],
+      { confirmLabel: 'Archive', destructive: true },
     );
+    if (!confirmed) return;
+    try {
+      await archiveAccount.mutateAsync(account.id);
+      onClose();
+    } catch (e) {
+      await infoDialog('Error', (e as Error).message);
+    }
   }
 
   const color = categoryColor[account.category];

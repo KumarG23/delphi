@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -20,6 +19,7 @@ import {
   useCategories,
   useComputedBalance,
 } from '@/lib/transactions';
+import { infoDialog } from '@/lib/dialog';
 import {
   categoryColor,
   components,
@@ -103,7 +103,7 @@ export function AddTransactionSheet({ visible, onClose }: Props) {
     const raw = amountStr.trim().replace(/[^0-9.]/g, '');
     const parsed = parseFloat(raw);
     if (!raw || isNaN(parsed) || parsed <= 0) {
-      Alert.alert('Invalid amount', 'Please enter a valid amount.');
+      await infoDialog('Invalid amount', 'Please enter a valid amount.');
       return;
     }
 
@@ -118,7 +118,7 @@ export function AddTransactionSheet({ visible, onClose }: Props) {
         notes:            notes.trim() || null,
       });
     } catch (e) {
-      Alert.alert('Error', (e as Error).message);
+      await infoDialog('Error', (e as Error).message);
     }
   }
 

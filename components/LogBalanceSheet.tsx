@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 
 import { useLogBalance } from '@/lib/snapshots';
+import { infoDialog } from '@/lib/dialog';
 import {
   categoryColor,
   components,
@@ -61,7 +61,7 @@ export function LogBalanceSheet({ account, visible, onClose }: Props) {
     const raw = balance.trim().replace(/[^0-9.]/g, '');
     const parsed = parseFloat(raw);
     if (!raw || isNaN(parsed) || parsed < 0) {
-      Alert.alert('Invalid balance', 'Please enter a valid balance amount.');
+      await infoDialog('Invalid balance', 'Please enter a valid balance amount.');
       return;
     }
 
@@ -83,7 +83,7 @@ export function LogBalanceSheet({ account, visible, onClose }: Props) {
       });
       onClose();
     } catch (e) {
-      Alert.alert('Error', (e as Error).message);
+      await infoDialog('Error', (e as Error).message);
     }
   }
 

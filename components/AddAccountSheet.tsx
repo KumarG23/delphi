@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -19,6 +18,7 @@ import {
   TYPES_BY_CATEGORY,
   useAddAccount,
 } from '@/lib/accounts';
+import { infoDialog } from '@/lib/dialog';
 import {
   categoryColor,
   components,
@@ -86,7 +86,7 @@ export function AddAccountSheet({ visible, onClose }: Props) {
 
   async function handleSubmit() {
     if (!name.trim()) {
-      Alert.alert('Name required', 'Please enter a name for this account.');
+      await infoDialog('Name required', 'Please enter a name for this account.');
       return;
     }
     if (!category || !type) return;
@@ -96,7 +96,7 @@ export function AddAccountSheet({ visible, onClose }: Props) {
     if (raw) {
       const parsed = parseFloat(raw.replace(/[^0-9.]/g, ''));
       if (isNaN(parsed)) {
-        Alert.alert('Invalid balance', 'Please enter a valid number for the opening balance.');
+        await infoDialog('Invalid balance', 'Please enter a valid number for the opening balance.');
         return;
       }
       openingBalance = parsed;
@@ -106,7 +106,7 @@ export function AddAccountSheet({ visible, onClose }: Props) {
       await addAccount.mutateAsync({ name, category, type, institution, openingBalance });
       handleClose();
     } catch (e) {
-      Alert.alert('Error', (e as Error).message);
+      await infoDialog('Error', (e as Error).message);
     }
   }
 

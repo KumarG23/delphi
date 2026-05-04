@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
   requestNotificationPermissions,
 } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { confirmDialog, infoDialog } from '@/lib/dialog';
 import { useAuthStore } from '@/store/auth';
 import {
   components,
@@ -77,15 +77,15 @@ export default function SettingsScreen() {
 
   async function handleSaveName() {
     if (!displayName.trim()) {
-      Alert.alert('Error', 'Display name cannot be empty.');
+      await infoDialog('Error', 'Display name cannot be empty.');
       return;
     }
     try {
       await updateProfile.mutateAsync({ display_name: displayName.trim() });
       setNameEdited(false);
-      Alert.alert('Saved', 'Display name updated.');
+      await infoDialog('Saved', 'Display name updated.');
     } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'Could not save display name.');
+      await infoDialog('Error', e?.message ?? 'Could not save display name.');
     }
   }
 
@@ -98,21 +98,21 @@ export default function SettingsScreen() {
       activeCadence !== 'off' &&
       (isNaN(hourNum) || hourNum < 0 || hourNum > 23)
     ) {
-      Alert.alert('Error', 'Hour must be between 0 and 23.');
+      await infoDialog('Error', 'Hour must be between 0 and 23.');
       return;
     }
     if (
       activeCadence === 'monthly' &&
       (isNaN(dayNum) || dayNum < 1 || dayNum > 31)
     ) {
-      Alert.alert('Error', 'Day of month must be between 1 and 31.');
+      await infoDialog('Error', 'Day of month must be between 1 and 31.');
       return;
     }
 
     try {
       const granted = await requestNotificationPermissions();
       if (!granted && activeCadence !== 'off') {
-        Alert.alert(
+        await infoDialog(
           'Notifications Blocked',
           'Please enable notifications in your device settings to receive reminders.',
         );
@@ -132,9 +132,9 @@ export default function SettingsScreen() {
         timezone: profile?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
 
-      Alert.alert('Saved', activeCadence === 'off' ? 'Reminders turned off.' : 'Reminder scheduled.');
+      await infoDialog('Saved', activeCadence === 'off' ? 'Reminders turned off.' : 'Reminder scheduled.');
     } catch (e: any) {
-      Alert.alert('Error', e?.message ?? 'Could not save reminder settings.');
+      await infoDialog('Error', e?.message ?? 'Could not save reminder settings.');
     }
   }
 
@@ -146,23 +146,17 @@ export default function SettingsScreen() {
       router.replace('/(auth)/sign-in');
     } catch (e: any) {
       setSigningOut(false);
-      Alert.alert('Error', e?.message ?? 'Could not sign out.');
+      await infoDialog('Error', e?.message ?? 'Could not sign out.');
     }
   }
 
-  function handleSignOut() {
-    Alert.alert(
+  async function handleSignOut() {
+    const confirmed = await confirmDialog(
       'Sign out?',
       'You will be returned to the login screen.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: performSignOut,
-        },
-      ],
+      { confirmLabel: 'Sign Out', destructive: true },
     );
+    if (confirmed) await performSignOut();
   }
 
   const activeCadence = cadence ?? (profile?.reminder_cadence ?? 'off');
