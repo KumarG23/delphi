@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AccountActionSheet } from '@/components/AccountActionSheet';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
 import { EditAccountSheet } from '@/components/EditAccountSheet';
 import { LogBalanceSheet } from '@/components/LogBalanceSheet';
@@ -105,9 +105,10 @@ function SectionHeader({
 
 export default function AccountsScreen() {
   const { data: accounts, isLoading, error } = useAccounts();
-  const [addOpen, setAddOpen]         = useState(false);
-  const [editAccount, setEditAccount] = useState<AccountSummary | null>(null);
-  const [logAccount, setLogAccount]   = useState<AccountSummary | null>(null);
+  const [addOpen, setAddOpen]             = useState(false);
+  const [actionAccount, setActionAccount] = useState<AccountSummary | null>(null);
+  const [editAccount, setEditAccount]     = useState<AccountSummary | null>(null);
+  const [logAccount, setLogAccount]       = useState<AccountSummary | null>(null);
 
   const grouped = useMemo(() => {
     const result: Record<AccountCategory, AccountSummary[]> = {
@@ -177,17 +178,7 @@ export default function AccountsScreen() {
                       <View key={a.id}>
                         <AccountRow
                           account={a}
-                          onPress={() =>
-                            Alert.alert(
-                              a.nickname ?? a.name,
-                              null,
-                              [
-                                { text: 'Log Balance', onPress: () => setLogAccount(a) },
-                                { text: 'Edit Account', onPress: () => setEditAccount(a) },
-                                { text: 'Cancel', style: 'cancel' },
-                              ],
-                            )
-                          }
+                          onPress={() => setActionAccount(a)}
                         />
                         {i < catAccounts.length - 1 && (
                           <View style={styles.divider} />
@@ -210,6 +201,24 @@ export default function AccountsScreen() {
       </Pressable>
 
       <AddAccountSheet visible={addOpen} onClose={() => setAddOpen(false)} />
+
+      {actionAccount && (
+        <AccountActionSheet
+          account={actionAccount}
+          visible
+          onClose={() => setActionAccount(null)}
+          onLogBalance={() => {
+            const acc = actionAccount;
+            setActionAccount(null);
+            setLogAccount(acc);
+          }}
+          onEdit={() => {
+            const acc = actionAccount;
+            setActionAccount(null);
+            setEditAccount(acc);
+          }}
+        />
+      )}
 
       {editAccount && (
         <EditAccountSheet
