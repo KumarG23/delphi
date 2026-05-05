@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -126,6 +127,10 @@ export default function DashboardScreen() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [heroDisplayValue, setHeroDisplayValue] = useState(0);
 
+  // Live viewport width for the responsive two-column desktop layout.
+  const { width: viewportWidth } = useWindowDimensions();
+  const isWide = viewportWidth >= 768;
+
   // Data
   const { data: netWorthHistory } = useNetWorthHistory();
   const { data: accounts } = useAccounts();
@@ -226,6 +231,303 @@ export default function DashboardScreen() {
 
   // ── Render ──────────────────────────────────────────────────────────────
 
+  const headerEl = (
+    <View style={styles.header}>
+      <View style={styles.headerLeft}>
+        <View style={styles.avatarTile}>
+          <DelphiAvatar size={28} />
+        </View>
+        <View>
+          <Text style={styles.wordmark}>Delphi</Text>
+          <Text style={styles.greeting} numberOfLines={1}>
+            {greeting}
+          </Text>
+        </View>
+      </View>
+      <TouchableOpacity
+        onPress={() => setBulkOpen(true)}
+        style={styles.headerIcon}
+        hitSlop={8}
+      >
+        <Ionicons
+          name="notifications-outline"
+          size={22}
+          color={T.textMuted}
+        />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const heroEl = (
+    <View style={styles.heroSection}>
+      <View style={styles.modeToggleRow}>
+        <TouchableOpacity
+          style={[
+            styles.modePill,
+            mode === 'wealth' && { backgroundColor: T.primary },
+          ]}
+          onPress={() => setMode('wealth')}
+          activeOpacity={0.75}
+        >
+          <Text
+            style={[
+              styles.modePillText,
+              mode === 'wealth' ? { color: T.primaryFg } : { color: T.textDim },
+            ]}
+          >
+            Wealth
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.modePill,
+            mode === 'debt' && { backgroundColor: T.danger },
+          ]}
+          onPress={() => setMode('debt')}
+          activeOpacity={0.75}
+        >
+          <Text
+            style={[
+              styles.modePillText,
+              mode === 'debt' ? { color: T.text } : { color: T.textDim },
+            ]}
+          >
+            Debt
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <Text style={[styles.heroValue, { color: modeColor }]}>
+        {chartData.length > 0 ? fmtCurrencyFull(heroDisplayValue) : '—'}
+      </Text>
+
+      {changeInfo && !chartIsActive && (
+        <View style={styles.changeRow}>
+          <Text
+            style={[
+              styles.changeText,
+              { color: changeInfo.delta >= 0 ? T.primary : T.danger },
+            ]}
+          >
+            {changeInfo.delta >= 0 ? '▲' : '▼'}{' '}
+            {fmtCurrency(Math.abs(changeInfo.delta))}{' '}
+            ({Math.abs(changeInfo.pct).toFixed(1)}%)
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const chartEl = (
+    <View style={styles.chartContainer}>
+      {chartData.length === 0 && (
+        <View style={styles.chartPlaceholder}>
+          <Text style={styles.chartPlaceholderText}>
+            Log account balances to see your trend
+          </Text>
+        </View>
+      )}
+
+      {chartData.length === 1 && (
+        <View style={styles.chartPlaceholder}>
+          <Text style={styles.chartPlaceholderText}>
+            Log one more balance to start tracking your trend.
+          </Text>
+        </View>
+      )}
+
+      {chartData.length >= 2 && (
+        <ChartErrorBoundary
+          fallback={
+            <View style={styles.chartPlaceholder}>
+              <Text style={styles.chartPlaceholderText}>
+                Could not render chart
+              </Text>
+            </View>
+          }
+        >
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart
+              data={chartData}
+              margin={{ top: 10, right: 18, left: 18, bottom: 0 }}
+              onMouseMove={(s: any) => {
+                if (s?.isTooltipActive && s.activePayload?.length) {
+                  setHeroDisplayValue(s.activePayload[0].payload.value);
+                  setChartIsActive(true);
+                } else {
+                  setChartIsActive(false);
+                }
+              }}
+              onMouseLeave={() => {
+                setChartIsActive(false);
+                setHeroDisplayValue(latestValue);
+              }}
+            >
+              <defs>
+                <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={modeColor} stopOpacity={0.35} />
+                  <stop offset="100%" stopColor={modeColor} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <Tooltip
+                content={() => null}
+                cursor={{
+                  stroke: T.textDim,
+                  strokeDasharray: '3 3',
+                  strokeWidth: 1,
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke={modeColor}
+                strokeWidth={2.2}
+                fill="url(#dashGrad)"
+                activeDot={{
+                  r: 5,
+                  fill: modeColor,
+                  stroke: T.bg,
+                  strokeWidth: 2,
+                }}
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartErrorBoundary>
+      )}
+    </View>
+  );
+
+  const rangePillsEl = (
+    <View style={styles.rangeRow}>
+      {RANGES.map(r => (
+        <TouchableOpacity
+          key={r}
+          style={[styles.rangePill, range === r && styles.rangePillActive]}
+          onPress={() => setRange(r)}
+          activeOpacity={0.7}
+        >
+          <Text
+            style={[
+              styles.rangePillText,
+              { color: range === r ? T.text : T.textMuted },
+            ]}
+          >
+            {r}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+
+  const bucketStripEl = (
+    <View style={styles.bucketStrip}>
+      {BUCKETS.map(cat => {
+        const isActive = activeBucket === cat;
+        const color = categoryColor[cat];
+        const label =
+          cat === 'debt' ? 'DEBT' : cat === 'cash' ? 'CASH' : 'INVESTMENTS';
+        return (
+          <TouchableOpacity
+            key={cat}
+            style={[
+              styles.bucketCol,
+              isActive && { borderBottomWidth: 2, borderBottomColor: color },
+            ]}
+            onPress={() => setActiveBucket(cat)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
+            <Text style={[styles.bucketTotal, { color }]}>
+              {fmtCurrency(bucketTotals[cat])}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+
+  // Mobile-only: bucket-filtered list under the bucket strip.
+  const filteredAccountsEl = (
+    <View style={styles.accountCard}>
+      {bucketAccounts.length > 0 ? (
+        bucketAccounts.map((account, idx) => (
+          <DashboardAccountRow
+            key={account.id}
+            account={account}
+            isHighestAprDebt={account.id === highestAprDebtId}
+            isLast={idx === bucketAccounts.length - 1}
+          />
+        ))
+      ) : (
+        <View style={styles.emptyBucket}>
+          <Text style={styles.emptyBucketText}>
+            No {CATEGORY_LABELS[activeBucket]} accounts yet
+          </Text>
+          <TouchableOpacity onPress={() => setAddOpen(true)} hitSlop={8}>
+            <Text style={styles.emptyBucketAdd}>+  Add account</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  // Desktop-only: full-account sidebar (right column).
+  const sidebarEl = (
+    <View style={styles.sidebarCard}>
+      <Text style={styles.sidebarLabel}>YOUR ACCOUNTS</Text>
+      {accounts && accounts.length > 0 ? (
+        accounts.map((account, idx) => (
+          <DashboardAccountRow
+            key={account.id}
+            account={account}
+            isHighestAprDebt={account.id === highestAprDebtId}
+            isLast={idx === accounts.length - 1}
+          />
+        ))
+      ) : (
+        <View style={styles.emptyBucket}>
+          <Text style={styles.emptyBucketText}>No accounts yet</Text>
+          <TouchableOpacity onPress={() => setAddOpen(true)} hitSlop={8}>
+            <Text style={styles.emptyBucketAdd}>+  Add account</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  const reminderEl = (
+    <TouchableOpacity
+      style={styles.reminderCard}
+      onPress={() => setBulkOpen(true)}
+      activeOpacity={0.75}
+    >
+      <Text style={styles.reminderText}>
+        📅  Next check-in: log balances when ready
+      </Text>
+      <Ionicons name="chevron-forward" size={16} color={T.textDim} />
+    </TouchableOpacity>
+  );
+
+  const askDelphiEl = (
+    <TouchableOpacity
+      style={styles.delphiCard}
+      onPress={() => {
+        infoDialog('Coming soon', 'Ask Delphi is coming in Phase 2.');
+      }}
+      activeOpacity={0.8}
+    >
+      <View style={styles.delphiLeft}>
+        <Text style={styles.delphiSparkle}>✨</Text>
+        <View>
+          <Text style={styles.delphiTitle}>Ask Delphi</Text>
+          <Text style={styles.delphiSub}>Coming in Phase 2</Text>
+        </View>
+      </View>
+      <Ionicons name="chevron-forward" size={16} color={palette.gold} />
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
@@ -233,293 +535,35 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.inner}>
-
-          {/* ── 1. Header ───────────────────────────────────────────────── */}
-          <View style={styles.header}>
-            <View style={styles.headerLeft}>
-              <View style={styles.avatarTile}>
-                <DelphiAvatar size={28} />
+        {isWide ? (
+          <View style={styles.outerWide}>
+            <View style={styles.twoColRow}>
+              <View style={styles.leftCol}>
+                {headerEl}
+                {heroEl}
+                {chartEl}
+                {rangePillsEl}
+                {bucketStripEl}
+                {askDelphiEl}
+                {reminderEl}
               </View>
-              <View>
-                <Text style={styles.wordmark}>Delphi</Text>
-                <Text style={styles.greeting} numberOfLines={1}>
-                  {greeting}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={() => setBulkOpen(true)}
-              style={styles.headerIcon}
-              hitSlop={8}
-            >
-              <Ionicons
-                name="notifications-outline"
-                size={22}
-                color={T.textMuted}
-              />
-            </TouchableOpacity>
-          </View>
-
-          {/* ── 2. Hero Section ─────────────────────────────────────────── */}
-          <View style={styles.heroSection}>
-            {/* Mode toggle pills */}
-            <View style={styles.modeToggleRow}>
-              <TouchableOpacity
-                style={[
-                  styles.modePill,
-                  mode === 'wealth' && { backgroundColor: T.primary },
-                ]}
-                onPress={() => setMode('wealth')}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    mode === 'wealth'
-                      ? { color: T.primaryFg }
-                      : { color: T.textDim },
-                  ]}
-                >
-                  Wealth
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.modePill,
-                  mode === 'debt' && { backgroundColor: T.danger },
-                ]}
-                onPress={() => setMode('debt')}
-                activeOpacity={0.75}
-              >
-                <Text
-                  style={[
-                    styles.modePillText,
-                    mode === 'debt'
-                      ? { color: T.text }
-                      : { color: T.textDim },
-                  ]}
-                >
-                  Debt
-                </Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Hero number */}
-            <Text style={[styles.heroValue, { color: modeColor }]}>
-              {chartData.length > 0 ? fmtCurrencyFull(heroDisplayValue) : '—'}
-            </Text>
-
-            {/* Change line */}
-            {changeInfo && !chartIsActive && (
-              <View style={styles.changeRow}>
-                <Text
-                  style={[
-                    styles.changeText,
-                    { color: changeInfo.delta >= 0 ? T.primary : T.danger },
-                  ]}
-                >
-                  {changeInfo.delta >= 0 ? '▲' : '▼'}{' '}
-                  {fmtCurrency(Math.abs(changeInfo.delta))}{' '}
-                  ({Math.abs(changeInfo.pct).toFixed(1)}%)
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* ── 3. Chart Section ────────────────────────────────────────── */}
-          <View style={styles.chartContainer}>
-            {chartData.length === 0 && (
-              <View style={styles.chartPlaceholder}>
-                <Text style={styles.chartPlaceholderText}>
-                  Log account balances to see your trend
-                </Text>
-              </View>
-            )}
-
-            {chartData.length === 1 && (
-              <View style={styles.chartPlaceholder}>
-                <Text style={styles.chartPlaceholderText}>
-                  Log one more balance to start tracking your trend.
-                </Text>
-              </View>
-            )}
-
-            {chartData.length >= 2 && (
-              <ChartErrorBoundary
-                fallback={
-                  <View style={styles.chartPlaceholder}>
-                    <Text style={styles.chartPlaceholderText}>
-                      Could not render chart
-                    </Text>
-                  </View>
-                }
-              >
-                <ResponsiveContainer width="100%" height={220}>
-                  <AreaChart
-                    data={chartData}
-                    margin={{ top: 10, right: 18, left: 18, bottom: 0 }}
-                    onMouseMove={(s: any) => {
-                      if (s?.isTooltipActive && s.activePayload?.length) {
-                        setHeroDisplayValue(s.activePayload[0].payload.value);
-                        setChartIsActive(true);
-                      } else {
-                        setChartIsActive(false);
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      setChartIsActive(false);
-                      setHeroDisplayValue(latestValue);
-                    }}
-                  >
-                    <defs>
-                      <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={modeColor} stopOpacity={0.35} />
-                        <stop offset="100%" stopColor={modeColor} stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <Tooltip
-                      content={() => null}
-                      cursor={{
-                        stroke: T.textDim,
-                        strokeDasharray: '3 3',
-                        strokeWidth: 1,
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke={modeColor}
-                      strokeWidth={2.2}
-                      fill="url(#dashGrad)"
-                      activeDot={{
-                        r: 5,
-                        fill: modeColor,
-                        stroke: T.bg,
-                        strokeWidth: 2,
-                      }}
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </ChartErrorBoundary>
-            )}
-          </View>
-
-          {/* Range pills */}
-          <View style={styles.rangeRow}>
-            {RANGES.map(r => (
-              <TouchableOpacity
-                key={r}
-                style={[
-                  styles.rangePill,
-                  range === r && styles.rangePillActive,
-                ]}
-                onPress={() => setRange(r)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.rangePillText,
-                    { color: range === r ? T.text : T.textMuted },
-                  ]}
-                >
-                  {r}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* ── 4. Bucket Strip ─────────────────────────────────────────── */}
-          <View style={styles.bucketStrip}>
-            {BUCKETS.map(cat => {
-              const isActive = activeBucket === cat;
-              const color = categoryColor[cat];
-              const label =
-                cat === 'debt'
-                  ? 'DEBT'
-                  : cat === 'cash'
-                  ? 'CASH'
-                  : 'INVESTMENTS';
-              return (
-                <TouchableOpacity
-                  key={cat}
-                  style={[
-                    styles.bucketCol,
-                    isActive && {
-                      borderBottomWidth: 2,
-                      borderBottomColor: color,
-                    },
-                  ]}
-                  onPress={() => setActiveBucket(cat)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.bucketLabel, { color }]}>{label}</Text>
-                  <Text style={[styles.bucketTotal, { color }]}>
-                    {fmtCurrency(bucketTotals[cat])}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* ── 5. Account List ─────────────────────────────────────────── */}
-          <View style={styles.accountCard}>
-            {bucketAccounts.length > 0 ? (
-              bucketAccounts.map((account, idx) => (
-                <DashboardAccountRow
-                  key={account.id}
-                  account={account}
-                  isHighestAprDebt={account.id === highestAprDebtId}
-                  isLast={idx === bucketAccounts.length - 1}
-                />
-              ))
-            ) : (
-              <View style={styles.emptyBucket}>
-                <Text style={styles.emptyBucketText}>
-                  No {CATEGORY_LABELS[activeBucket]} accounts yet
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setAddOpen(true)}
-                  hitSlop={8}
-                >
-                  <Text style={styles.emptyBucketAdd}>+  Add account</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          {/* ── 6. Reminder Banner ──────────────────────────────────────── */}
-          <TouchableOpacity
-            style={styles.reminderCard}
-            onPress={() => setBulkOpen(true)}
-            activeOpacity={0.75}
-          >
-            <Text style={styles.reminderText}>
-              📅  Next check-in: log balances when ready
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={T.textDim} />
-          </TouchableOpacity>
-
-          {/* ── 7. Ask Delphi CTA ───────────────────────────────────────── */}
-          <TouchableOpacity
-            style={styles.delphiCard}
-            onPress={() => {
-              infoDialog('Coming soon', 'Ask Delphi is coming in Phase 2.');
-            }}
-            activeOpacity={0.8}
-          >
-            <View style={styles.delphiLeft}>
-              <Text style={styles.delphiSparkle}>✨</Text>
-              <View>
-                <Text style={styles.delphiTitle}>Ask Delphi</Text>
-                <Text style={styles.delphiSub}>Coming in Phase 2</Text>
+              <View style={styles.rightCol}>
+                {sidebarEl}
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={palette.gold} />
-          </TouchableOpacity>
-
-        </View>
+          </View>
+        ) : (
+          <View style={styles.inner}>
+            {headerEl}
+            {heroEl}
+            {chartEl}
+            {rangePillsEl}
+            {bucketStripEl}
+            {filteredAccountsEl}
+            {reminderEl}
+            {askDelphiEl}
+          </View>
+        )}
       </ScrollView>
 
       {/* Sheets */}
@@ -547,6 +591,44 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     width: '100%',
     paddingHorizontal: space['10'],
+  },
+
+  // ── Desktop two-column layout ────────────────────────────────────────────
+  outerWide: {
+    width: '100%',
+    maxWidth: 1280,
+    alignSelf: 'center',
+    paddingHorizontal: space['10'],
+  },
+  twoColRow: {
+    flexDirection: 'row',
+    gap: space['10'],
+    alignItems: 'flex-start',
+  },
+  leftCol: {
+    flex: 7,
+    minWidth: 0,
+  },
+  rightCol: {
+    flex: 3,
+    minWidth: 0,
+    paddingTop: space['10'],
+  },
+  sidebarCard: {
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
+    borderRadius: radius.xl,
+    overflow: 'hidden',
+  },
+  sidebarLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    letterSpacing: letterSpacing.widest,
+    color: T.textMuted,
+    paddingTop: space['8'],
+    paddingHorizontal: space['10'],
+    paddingBottom: space['6'],
   },
 
   // ── Header ────────────────────────────────────────────────────────────────
