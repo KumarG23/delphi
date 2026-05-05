@@ -30,6 +30,7 @@ import { useAccounts, ACCOUNT_TYPE_LABELS, CATEGORY_LABELS } from '@/lib/account
 import { useProfile } from '@/lib/settings';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
+import { ChartErrorBoundary } from '@/components/ChartErrorBoundary';
 import DelphiAvatar from '@/components/DelphiAvatar';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
@@ -165,6 +166,25 @@ export default function DashboardScreen() {
         date: p.snapshot_date,
       }));
   }, [netWorthHistory, range, mode]);
+
+  // Skia chokes on degenerate ranges. Detect a near-flat series and pad the
+  // y-domain so XYWHRect always has a non-zero range to draw.
+  const chartYDomain = useMemo<[number, number] | undefined>(() => {
+    if (chartData.length < 2) return undefined;
+    let min = Infinity;
+    let max = -Infinity;
+    let sum = 0;
+    for (const p of chartData) {
+      if (p.value < min) min = p.value;
+      if (p.value > max) max = p.value;
+      sum += p.value;
+    }
+    const mean = sum / chartData.length;
+    const threshold = Math.max(1, Math.abs(mean) * 0.0001);
+    if (max - min >= threshold) return undefined;
+    const buffer = Math.max(1, Math.abs(mean) * 0.01);
+    return [min - buffer, max + buffer];
+  }, [chartData]);
 
   // Keep hero value and shared value in sync with chart data
   useEffect(() => {
@@ -329,43 +349,64 @@ export default function DashboardScreen() {
 
           {/* ── 3. Chart Section ────────────────────────────────────────── */}
           <View style={styles.chartContainer}>
-            {chartData.length > 1 ? (
-              <CartesianChart
-                data={chartData}
-                xKey="x"
-                yKeys={['value']}
-                chartPressState={chartState}
-                domainPadding={{ top: 30, left: 8, right: 8, bottom: 0 }}
-                axisOptions={{
-                  labelColor: 'transparent',
-                  lineColor: 'transparent',
-                  tickCount: { x: 0, y: 0 },
-                }}
-              >
-                {({ points, chartBounds }) => (
-                  <>
-                    <Area
-                      points={points.value}
-                      y0={chartBounds.bottom}
-                      color={modeColor}
-                      opacity={0.15}
-                      animate={{ type: 'spring', duration: 400 }}
-                    />
-                    <Line
-                      points={points.value}
-                      color={modeColor}
-                      strokeWidth={2.5}
-                      animate={{ type: 'spring', duration: 400 }}
-                    />
-                  </>
-                )}
-              </CartesianChart>
-            ) : (
+            {chartData.length === 0 && (
               <View style={styles.chartPlaceholder}>
                 <Text style={styles.chartPlaceholderText}>
                   Log account balances to see your trend
                 </Text>
               </View>
+            )}
+
+            {chartData.length === 1 && (
+              <View style={styles.chartPlaceholder}>
+                <Text style={styles.chartPlaceholderText}>
+                  Log one more balance to start tracking your trend.
+                </Text>
+              </View>
+            )}
+
+            {chartData.length >= 2 && (
+              <ChartErrorBoundary
+                fallback={
+                  <View style={styles.chartPlaceholder}>
+                    <Text style={styles.chartPlaceholderText}>
+                      Could not render chart
+                    </Text>
+                  </View>
+                }
+              >
+                <CartesianChart
+                  data={chartData}
+                  xKey="x"
+                  yKeys={['value']}
+                  chartPressState={chartState}
+                  domain={chartYDomain ? { y: chartYDomain } : undefined}
+                  domainPadding={{ top: 30, left: 8, right: 8, bottom: 0 }}
+                  axisOptions={{
+                    labelColor: 'transparent',
+                    lineColor: 'transparent',
+                    tickCount: { x: 0, y: 0 },
+                  }}
+                >
+                  {({ points, chartBounds }) => (
+                    <>
+                      <Area
+                        points={points.value}
+                        y0={chartBounds.bottom}
+                        color={modeColor}
+                        opacity={0.15}
+                        animate={{ type: 'spring', duration: 400 }}
+                      />
+                      <Line
+                        points={points.value}
+                        color={modeColor}
+                        strokeWidth={2.5}
+                        animate={{ type: 'spring', duration: 400 }}
+                      />
+                    </>
+                  )}
+                </CartesianChart>
+              </ChartErrorBoundary>
             )}
           </View>
 
