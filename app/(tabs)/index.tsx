@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -32,6 +33,7 @@ import { AddAccountSheet } from '@/components/AddAccountSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary';
 import DelphiAvatar from '@/components/DelphiAvatar';
+import { LogBalanceSheet } from '@/components/LogBalanceSheet';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -79,9 +81,15 @@ interface AccountRowProps {
   account: AccountSummary;
   isHighestAprDebt: boolean;
   isLast: boolean;
+  onPress?: () => void;
 }
 
-function DashboardAccountRow({ account, isHighestAprDebt, isLast }: AccountRowProps) {
+function DashboardAccountRow({
+  account,
+  isHighestAprDebt,
+  isLast,
+  onPress,
+}: AccountRowProps) {
   const color = categoryColor[account.category];
   const displayName = account.nickname ?? account.name;
 
@@ -94,14 +102,8 @@ function DashboardAccountRow({ account, isHighestAprDebt, isLast }: AccountRowPr
     subLine = ACCOUNT_TYPE_LABELS[account.type];
   }
 
-  return (
-    <View
-      style={[
-        styles.accountRow,
-        isHighestAprDebt && styles.accountRowHighlighted,
-        !isLast && styles.accountRowDivider,
-      ]}
-    >
+  const content = (
+    <>
       <View style={[styles.accountDot, { backgroundColor: color }]} />
       <View style={styles.accountInfo}>
         <Text style={styles.accountName} numberOfLines={1}>
@@ -112,6 +114,36 @@ function DashboardAccountRow({ account, isHighestAprDebt, isLast }: AccountRowPr
       <Text style={[styles.accountBalance, { color }]}>
         {account.latest_balance != null ? fmtCurrency(account.latest_balance) : '—'}
       </Text>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        // RN Web exposes `hovered` on Pressable's state; TS types omit it.
+        style={(state: any) => [
+          styles.accountRow,
+          isHighestAprDebt && styles.accountRowHighlighted,
+          !isLast && styles.accountRowDivider,
+          state.hovered && { backgroundColor: tint(color, 0.08) },
+          state.pressed && { opacity: 0.7 },
+        ]}
+      >
+        {content}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View
+      style={[
+        styles.accountRow,
+        isHighestAprDebt && styles.accountRowHighlighted,
+        !isLast && styles.accountRowDivider,
+      ]}
+    >
+      {content}
     </View>
   );
 }
@@ -125,6 +157,8 @@ export default function DashboardScreen() {
   const [activeBucket, setActiveBucket] = useState<AccountCategory>('debt');
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [logBalanceAccount, setLogBalanceAccount] =
+    useState<AccountSummary | null>(null);
   const [heroDisplayValue, setHeroDisplayValue] = useState(0);
 
   // Live viewport width for the responsive two-column desktop layout.
@@ -472,7 +506,9 @@ export default function DashboardScreen() {
     </View>
   );
 
-  // Desktop-only: full-account sidebar (right column).
+  // Desktop-only: full-account sidebar (right column). Rows are pressable
+  // and open LogBalanceSheet directly — fast daily logging is the primary
+  // dashboard action.
   const sidebarEl = (
     <View style={styles.sidebarCard}>
       <Text style={styles.sidebarLabel}>YOUR ACCOUNTS</Text>
@@ -483,6 +519,7 @@ export default function DashboardScreen() {
             account={account}
             isHighestAprDebt={account.id === highestAprDebtId}
             isLast={idx === accounts.length - 1}
+            onPress={() => setLogBalanceAccount(account)}
           />
         ))
       ) : (
@@ -569,6 +606,13 @@ export default function DashboardScreen() {
       {/* Sheets */}
       <AddAccountSheet visible={addOpen} onClose={() => setAddOpen(false)} />
       <BulkLogSheet visible={bulkOpen} onClose={() => setBulkOpen(false)} />
+      {logBalanceAccount && (
+        <LogBalanceSheet
+          account={logBalanceAccount}
+          visible
+          onClose={() => setLogBalanceAccount(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }
