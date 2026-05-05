@@ -8,8 +8,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAnimatedReaction, useSharedValue, runOnJS } from 'react-native-reanimated';
-import { CartesianChart, Area, Line, useChartPressState } from 'victory-native';
+import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { infoDialog } from '@/lib/dialog';
 
@@ -143,12 +142,9 @@ export default function DashboardScreen() {
     return name ? `${period}, ${name}` : 'Hello';
   }, [profile?.display_name]);
 
-  // Chart press state
-  const { state: chartState, isActive: chartIsActive } = useChartPressState({
-    x: 0,
-    y: { value: 0 },
-  });
-  const latestValueShared = useSharedValue(0);
+  // Hover/scrub state — drives the hero number while the user moves their
+  // cursor over the chart, and hides the static change line during scrub.
+  const [chartIsActive, setChartIsActive] = useState(false);
 
   // Filtered chart data
   const chartData = useMemo(() => {
@@ -174,39 +170,16 @@ export default function DashboardScreen() {
   mode 
 });
 
-  // Skia chokes on degenerate ranges. Detect a near-flat series and pad the
-  // y-domain so XYWHRect always has a non-zero range to draw.
-  const chartYDomain = useMemo<[number, number] | undefined>(() => {
-    if (chartData.length < 2) return undefined;
-    let min = Infinity;
-    let max = -Infinity;
-    let sum = 0;
-    for (const p of chartData) {
-      if (p.value < min) min = p.value;
-      if (p.value > max) max = p.value;
-      sum += p.value;
-    }
-    const mean = sum / chartData.length;
-    const threshold = Math.max(1, Math.abs(mean) * 0.0001);
-    if (max - min >= threshold) return undefined;
-    const buffer = Math.max(1, Math.abs(mean) * 0.01);
-    return [min - buffer, max + buffer];
-  }, [chartData]);
+  // The latest (rightmost) value — what the hero shows when the user isn't
+  // scrubbing the chart.
+  const latestValue = chartData[chartData.length - 1]?.value ?? 0;
 
-  // Keep hero value and shared value in sync with chart data
+  // Reset the hero number whenever the underlying series changes (range or
+  // mode flip, new data fetch, etc.).
   useEffect(() => {
-    const last = chartData[chartData.length - 1]?.value ?? 0;
-    latestValueShared.value = last;
-    setHeroDisplayValue(last);
-  }, [chartData]);
-
-  // Scrub interaction: update hero while pressing, restore on release
-  useAnimatedReaction(
-    () => ({ active: chartIsActive.value, val: chartState.y.value.value }),
-    ({ active, val }) => {
-      runOnJS(setHeroDisplayValue)(active ? val : latestValueShared.value);
-    }
-  );
+    setHeroDisplayValue(latestValue);
+    setChartIsActive(false);
+  }, [latestValue]);
 
   // Change calculation (first to last of filtered data)
   const changeInfo = useMemo(() => {
@@ -338,7 +311,7 @@ export default function DashboardScreen() {
             </Text>
 
             {/* Change line */}
-            {changeInfo && !chartIsActive.value && (
+            {changeInfo && !chartIsActive && (
               <View style={styles.changeRow}>
                 <Text
                   style={[
@@ -382,37 +355,53 @@ export default function DashboardScreen() {
                   </View>
                 }
               >
-                <CartesianChart
-                  data={chartData}
-                  xKey="x"
-                  yKeys={['value']}
-                  chartPressState={chartState}
-                  domain={chartYDomain ? { y: chartYDomain } : undefined}
-                  domainPadding={{ top: 30, left: 8, right: 8, bottom: 0 }}
-                  axisOptions={{
-                    labelColor: 'transparent',
-                    lineColor: 'transparent',
-                    tickCount: { x: 0, y: 0 },
-                  }}
-                >
-                  {({ points, chartBounds }) => (
-                    <>
-                      <Area
-                        points={points.value}
-                        y0={chartBounds.bottom}
-                        color={modeColor}
-                        opacity={0.15}
-                        animate={{ type: 'spring', duration: 400 }}
-                      />
-                      <Line
-                        points={points.value}
-                        color={modeColor}
-                        strokeWidth={2.5}
-                        animate={{ type: 'spring', duration: 400 }}
-                      />
-                    </>
-                  )}
-                </CartesianChart>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={chartData}
+                    margin={{ top: 10, right: 18, left: 18, bottom: 0 }}
+                    onMouseMove={(s: any) => {
+                      if (s?.isTooltipActive && s.activePayload?.length) {
+                        setHeroDisplayValue(s.activePayload[0].payload.value);
+                        setChartIsActive(true);
+                      } else {
+                        setChartIsActive(false);
+                      }
+                    }}
+                    onMouseLeave={() => {
+                      setChartIsActive(false);
+                      setHeroDisplayValue(latestValue);
+                    }}
+                  >
+                    <defs>
+                      <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={modeColor} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={modeColor} stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <Tooltip
+                      content={() => null}
+                      cursor={{
+                        stroke: T.textDim,
+                        strokeDasharray: '3 3',
+                        strokeWidth: 1,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke={modeColor}
+                      strokeWidth={2.2}
+                      fill="url(#dashGrad)"
+                      activeDot={{
+                        r: 5,
+                        fill: modeColor,
+                        stroke: T.bg,
+                        strokeWidth: 2,
+                      }}
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </ChartErrorBoundary>
             )}
           </View>
