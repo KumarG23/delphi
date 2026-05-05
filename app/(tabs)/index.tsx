@@ -167,6 +167,13 @@ export default function DashboardScreen() {
       }));
   }, [netWorthHistory, range, mode]);
 
+  console.log('[chart debug]', { 
+  length: chartData.length, 
+  data: chartData,
+  range,
+  mode 
+});
+
   // Skia chokes on degenerate ranges. Detect a near-flat series and pad the
   // y-domain so XYWHRect always has a non-zero range to draw.
   const chartYDomain = useMemo<[number, number] | undefined>(() => {

@@ -22,7 +22,8 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8090)",
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8091)",
       "Bash(env)",
-      "Bash(curl -s -o /dev/null -w \"anon-PostgREST sanity: HTTP %{http_code}\\\\n\" -H \"apikey: $\\(grep ANON_KEY /Users/nealsharma/code/delphi/.env)"
+      "Bash(curl -s -o /dev/null -w \"anon-PostgREST sanity: HTTP %{http_code}\\\\n\" -H \"apikey: $\\(grep ANON_KEY /Users/nealsharma/code/delphi/.env)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8092)"
     ]
   }
 }
