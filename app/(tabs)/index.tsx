@@ -355,7 +355,7 @@ export default function DashboardScreen() {
                   </View>
                 }
               >
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={220}>
                   <AreaChart
                     data={chartData}
                     margin={{ top: 10, right: 18, left: 18, bottom: 0 }}
@@ -628,6 +628,7 @@ const styles = StyleSheet.create({
 
   // ── Chart ─────────────────────────────────────────────────────────────────
   chartContainer: {
+    width: '100%',
     height: 220,
     marginBottom: space['6'],
   },

@@ -310,7 +310,7 @@ export const z = {
 //  Locked-in measurements for repeated patterns.
 // ───────────────────────────────────────────────────────────────────────────
 export const components = {
-  dashboardMaxWidth:   420,
+  dashboardMaxWidth:   720,
   cardPadding:         16,
   cardPaddingCompact:  12,
   fabSize:             56,
