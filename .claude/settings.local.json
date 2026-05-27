@@ -23,7 +23,13 @@
       "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8091)",
       "Bash(env)",
       "Bash(curl -s -o /dev/null -w \"anon-PostgREST sanity: HTTP %{http_code}\\\\n\" -H \"apikey: $\\(grep ANON_KEY /Users/nealsharma/code/delphi/.env)",
-      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8092)"
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8092)",
+      "Bash(npm install *)",
+      "Bash(npm uninstall *)",
+      "Bash(curl -s -o /dev/null -w \"HTTP %{http_code}\\\\n\" http://localhost:8093)",
+      "Bash(mkdir -p /Users/nealsharma/code/delphi/assets/loaders)",
+      "Bash(mv /Users/nealsharma/code/delphi/assets/images/abcd_ab_thumbnailjpg.mp4 /Users/nealsharma/code/delphi/assets/loaders/loader-01.mp4)",
+      "Bash(mv /Users/nealsharma/code/delphi/assets/images/e_d_f_da_fbcmp_.mp4 /Users/nealsharma/code/delphi/assets/loaders/loader-02.mp4)"
     ]
   }
 }

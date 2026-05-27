@@ -1,13 +1,15 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useFonts } from 'expo-font';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, usePathname, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import 'react-native-reanimated';
 
+import { TransitionOverlay } from '@/components/TransitionOverlay';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/auth';
+import { useTransitionStore } from '@/store/transition';
 import { setupNotificationHandler } from '@/lib/notifications';
 
 const queryClient = new QueryClient();
@@ -48,6 +50,21 @@ function RootLayoutNav() {
   const { session, initialized, setSession, setInitialized } = useAuthStore();
   const segments = useSegments();
   const router   = useRouter();
+  const pathname = usePathname();
+  const showTransition = useTransitionStore((s) => s.show);
+  const prevPathname = useRef<string | null>(null);
+
+  // Fire the rotating loader whenever the route actually changes.
+  // Skip the very first render so cold start doesn't show one.
+  useEffect(() => {
+    if (prevPathname.current === null) {
+      prevPathname.current = pathname;
+      return;
+    }
+    if (prevPathname.current === pathname) return;
+    prevPathname.current = pathname;
+    showTransition();
+  }, [pathname, showTransition]);
 
   // Subscribe to auth state once on mount
   useEffect(() => {
@@ -100,10 +117,13 @@ function RootLayoutNav() {
   }, [session, initialized, segments]);
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      <Stack.Screen name="modal"  options={{ presentation: 'modal' }} />
-    </Stack>
+    <>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal"  options={{ presentation: 'modal' }} />
+      </Stack>
+      <TransitionOverlay />
+    </>
   );
 }
