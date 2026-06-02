@@ -3,6 +3,9 @@
 export const LOADERS = [
   require('../assets/loaders/loader-01.mp4'),
   require('../assets/loaders/loader-02.mp4'),
+  require('../assets/loaders/loader-03.mp4'),
+  require('../assets/loaders/loader-04.mp4'),
+  require('../assets/loaders/loader-05.mp4'),
 ];
 
 let lastIndex = -1;
