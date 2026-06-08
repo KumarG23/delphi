@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from './supabase';
 import { ACCOUNTS_KEY } from './accounts';
+import { NET_WORTH_KEY } from './dashboard';
 import type { BalanceSnapshot } from '@/types/database';
 
 export const SNAPSHOTS_KEY = (accountId: string) => ['snapshots', accountId] as const;
@@ -62,6 +63,7 @@ export function useLogBalance() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: SNAPSHOTS_KEY(variables.account_id) });
       qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      qc.invalidateQueries({ queryKey: NET_WORTH_KEY });
     },
   });
 }
@@ -79,6 +81,7 @@ export function useDeleteSnapshot() {
     onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: SNAPSHOTS_KEY(variables.accountId) });
       qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      qc.invalidateQueries({ queryKey: NET_WORTH_KEY });
     },
   });
 }

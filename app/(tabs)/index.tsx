@@ -75,6 +75,18 @@ function fmtCurrencyFull(val: number): string {
   }).format(val);
 }
 
+// Parse a 'YYYY-MM-DD' snapshot date without timezone drift and render it as
+// e.g. "May 27, 2026" for the chart tooltip.
+function fmtTooltipDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 // ─── Account Row ─────────────────────────────────────────────────────────────
 
 interface AccountRowProps {
@@ -201,13 +213,6 @@ export default function DashboardScreen() {
         date: p.snapshot_date,
       }));
   }, [netWorthHistory, range, mode]);
-
-  console.log('[chart debug]', { 
-  length: chartData.length, 
-  data: chartData,
-  range,
-  mode 
-});
 
   // The latest (rightmost) value — what the hero shows when the user isn't
   // scrubbing the chart.
@@ -404,11 +409,44 @@ export default function DashboardScreen() {
                 </linearGradient>
               </defs>
               <Tooltip
-                content={() => null}
                 cursor={{
                   stroke: T.textDim,
                   strokeDasharray: '3 3',
                   strokeWidth: 1,
+                }}
+                content={({ active, payload }: any) => {
+                  if (!active || !payload?.length) return null;
+                  const p = payload[0].payload;
+                  return (
+                    <div
+                      style={{
+                        backgroundColor: T.card,
+                        border: `1px solid ${T.border}`,
+                        borderRadius: 8,
+                        padding: '6px 10px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                      }}
+                    >
+                      <div
+                        style={{
+                          color: modeColor,
+                          fontWeight: 700,
+                          fontSize: 14,
+                        }}
+                      >
+                        {fmtCurrencyFull(p.value)}
+                      </div>
+                      <div
+                        style={{
+                          color: T.textDim,
+                          fontSize: 11,
+                          marginTop: 2,
+                        }}
+                      >
+                        {fmtTooltipDate(p.date)}
+                      </div>
+                    </div>
+                  );
                 }}
               />
               <Area

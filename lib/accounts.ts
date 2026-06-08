@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from './supabase';
+import { NET_WORTH_KEY } from './dashboard';
 import type { AccountCategory, AccountSummary, AccountType } from '@/types/database';
 
 export const ACCOUNTS_KEY = ['accounts'] as const;
@@ -92,7 +93,10 @@ export function useAddAccount() {
         if (snapErr) throw snapErr;
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ACCOUNTS_KEY }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      qc.invalidateQueries({ queryKey: NET_WORTH_KEY });
+    },
   });
 }
 
