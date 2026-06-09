@@ -1,72 +1,69 @@
 # Build Spec #2: Goals (Phase 2)
 
 > Author: Claude (architect). Builder: Grok. Reviewer: Claude.
-> Goal: create, track, and see verdicts on financial goals. Three types:
-> **debt payoff**, **savings/accumulate**, **net-worth target**. New `goals`
-> table. Active goals also feed Ask Delphi's context so she can coach toward them.
+> Goal: create, track, and see verdicts on financial goals. The `goals` table
+> ALREADY EXISTS in Supabase (original project design) — we build against it, no
+> CREATE needed. Active goals also feed Ask Delphi's context.
+
+## IMPORTANT: use the existing schema (do NOT create/alter the table)
+
+The live `goals` table and its enums (confirmed in Supabase):
+
+| column        | type                         | notes |
+|---------------|------------------------------|-------|
+| id            | uuid (pk)                    | |
+| user_id       | uuid not null                | RLS keyed on this (policies already exist) |
+| kind          | enum `goal_kind`             | `payoff` \| `accumulate` \| `category_target` |
+| account_id    | uuid null                    | the target account (null for net-worth goals) |
+| category      | enum (nullable)              | only for `category_target` — we leave it null |
+| name          | text not null                | the goal title |
+| start_value   | numeric not null             | baseline captured at creation |
+| target_value  | numeric not null             | the target |
+| target_date   | date null                    | optional deadline |
+| status        | enum `goal_status` not null  | `active` \| `achieved` \| `missed` \| `abandoned` |
+| achieved_at   | timestamptz null             | set when achieved |
+| created_at    | timestamptz not null         | |
+| updated_at    | timestamptz not null         | |
+
+RLS is already enabled with `goals: read/insert/update/delete own` policies.
+
+### How our 3 user-facing goal types map onto `kind`
+- **Debt payoff** → `kind='payoff'`, `account_id` = a debt account. Counts DOWN
+  (lower balance = more progress); `target_value` usually `0`.
+- **Savings** → `kind='accumulate'`, `account_id` = a cash/investment account.
+- **Net-worth target** → `kind='accumulate'`, `account_id = null`. (Accumulate
+  not tied to an account = grow overall net worth.)
+- `category_target` is OUT of scope for v1 (belongs to Budgets). Don't build it.
 
 ## Architecture decisions (locked unless Neal overrides)
 
 1. **New tab:** `app/(tabs)/goals.tsx`, registered in `app/(tabs)/_layout.tsx`
-   as a 5th tab (icon: `Ionicons "flag-outline"`, title "Goals"). Place it
-   between "Spending" and "Settings".
-2. **Progress is computed client-side** from current data (account
-   `latest_balance` / net-worth history) vs a stored baseline. The table stores
-   only the goal definition + the baseline captured at creation — never derived
-   progress.
-3. **Types:** define a hand-written `Goal` interface in `lib/goals.ts` (do NOT
-   edit the generated `types/database.ts`; Neal regenerates that separately). A
-   `// TODO: switch to generated Database['public']['Tables']['goals'] type`
-   comment is fine.
-4. **Goals feed Ask Delphi** — extend `lib/askDelphi/context.ts` to include a
-   compact "Goals" section, and pass goals from `AskDelphiSheet`.
-
-## §0 — Database (Neal runs this in the Supabase SQL editor — NOT Grok)
-
-```sql
-create table public.goals (
-  id            uuid primary key default gen_random_uuid(),
-  user_id       uuid not null references auth.users(id) on delete cascade,
-  type          text not null check (type in ('debt_payoff','savings','net_worth')),
-  title         text not null,
-  account_id    uuid references public.accounts(id) on delete cascade, -- null for net_worth
-  start_amount  numeric,            -- baseline captured at creation (for progress %)
-  target_amount numeric not null,
-  target_date   date,               -- optional deadline
-  is_active     boolean not null default true,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
-);
-
-alter table public.goals enable row level security;
-
-create policy "goals_select_own" on public.goals
-  for select using (auth.uid() = user_id);
-create policy "goals_insert_own" on public.goals
-  for insert with check (auth.uid() = user_id);
-create policy "goals_update_own" on public.goals
-  for update using (auth.uid() = user_id);
-create policy "goals_delete_own" on public.goals
-  for delete using (auth.uid() = user_id);
-```
-
-(This mirrors the existing `accounts` / `balance_snapshots` user_id + RLS pattern.)
+   (icon `Ionicons "flag-outline"`, title "Goals", placed before "Settings").
+2. **Progress/verdict computed client-side** from current data vs `start_value`.
+   The stored `status`/`achieved_at` track lifecycle (see §1).
+3. **Types:** hand-define `Goal` + enums in `lib/goals.ts` (do NOT edit generated
+   `types/database.ts`). `// TODO: switch to generated type after regen` is fine.
+4. **Goals feed Ask Delphi** — extend `lib/askDelphi/context.ts` + pass goals
+   from `AskDelphiSheet`.
 
 ## §1 — `lib/goals.ts`
 
 ```ts
-export type GoalType = 'debt_payoff' | 'savings' | 'net_worth';
+export type GoalKind = 'payoff' | 'accumulate' | 'category_target';
+export type GoalStatus = 'active' | 'achieved' | 'missed' | 'abandoned';
 
 export interface Goal {
   id: string;
   user_id: string;
-  type: GoalType;
-  title: string;
+  kind: GoalKind;
   account_id: string | null;
-  start_amount: number | null;
-  target_amount: number;
-  target_date: string | null;   // 'YYYY-MM-DD'
-  is_active: boolean;
+  category: string | null;     // unused for v1 (category_target only)
+  name: string;
+  start_value: number;
+  target_value: number;
+  target_date: string | null;  // 'YYYY-MM-DD'
+  status: GoalStatus;
+  achieved_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -74,22 +71,26 @@ export interface Goal {
 export const GOALS_KEY = ['goals'] as const;
 ```
 
-Hooks (TanStack), mirroring `lib/accounts.ts` style:
-- `useGoals()` — select active goals, newest first.
-- `useCreateGoal()` — insert; sets `user_id` from session; invalidates `GOALS_KEY`.
-- `useUpdateGoal()` — update title/target/date; invalidates `GOALS_KEY`.
-- `useDeleteGoal()` — hard delete (or set `is_active=false` — pick delete for
-  simplicity); invalidates `GOALS_KEY`.
+Hooks (TanStack, mirror `lib/accounts.ts`):
+- `useGoals()` — select `status in ('active','achieved')`, newest first. (Hide
+  abandoned/missed for now.)
+- `useCreateGoal()` — insert with `user_id` from session, `status='active'`;
+  caller supplies `kind`, `account_id`, `name`, `start_value`, `target_value`,
+  `target_date`. Invalidate `GOALS_KEY`.
+- `useUpdateGoal()` — patch name/target_value/target_date (+ `updated_at`).
+- `useAbandonGoal()` — soft-delete via `status='abandoned'` (our "delete").
+- `useMarkAchieved()` — set `status='achieved'`, `achieved_at=now()`. Used by the
+  optional auto-achieve in §2.
 
 **Progress helper (pure, exported):**
 ```ts
 export interface GoalProgress {
-  current: number;            // current value (balance or net worth)
-  progress: number;           // 0..1, clamped
-  pct: number;                // progress * 100, for display
+  current: number;
+  progress: number;   // 0..1 clamped
+  pct: number;        // progress*100 for display
   achieved: boolean;
-  status: 'achieved' | 'on_track' | 'behind' | 'no_deadline';
-  remaining: number;          // amount still to go (>= 0)
+  verdict: 'achieved' | 'on_track' | 'behind' | 'no_deadline';
+  remaining: number;  // >= 0
 }
 
 export function computeGoalProgress(
@@ -99,80 +100,79 @@ export function computeGoalProgress(
 ```
 
 Rules:
-- **current**: debt_payoff/savings → matching account's `latest_balance ?? 0`;
-  net_worth → latest `net_worth` from history (0 if none).
-- **start** = `goal.start_amount ?? current` (fallback if baseline missing).
-- debt_payoff: `progress = (start - current) / (start - target)`; achieved when
-  `current <= target`. (Paying DOWN, so lower is better.)
-- savings / net_worth: `progress = (current - start) / (target - start)`;
-  achieved when `current >= target`.
-- Guard divide-by-zero (denominator 0 → progress 1 if achieved else 0). Clamp
-  progress to [0,1].
-- **status**: `achieved` if achieved; else if no `target_date` → `no_deadline`;
-  else compare actual progress to time-elapsed fraction
-  `elapsed = (today - created) / (target_date - created)` →
+- **current**: `payoff` or `accumulate` WITH `account_id` → that account's
+  `latest_balance ?? 0`. `accumulate` with `account_id == null` → latest
+  `net_worth` from history (0 if none).
+- `payoff`: `progress = (start_value - current) / (start_value - target_value)`;
+  achieved when `current <= target_value`.
+- `accumulate`: `progress = (current - start_value) / (target_value - start_value)`;
+  achieved when `current >= target_value`.
+- Guard divide-by-zero (denominator 0 → progress 1 if achieved else 0). Clamp [0,1].
+- **verdict**: `achieved` if achieved; else no `target_date` → `no_deadline`;
+  else `elapsed = (today - created_at) / (target_date - created_at)`,
   `on_track` if `progress >= elapsed - 0.05`, else `behind`.
-- **remaining**: `Math.max(0, |target - current|)`.
+- **remaining**: `Math.max(0, Math.abs(target_value - current))`.
 
 ## §2 — UI: `app/(tabs)/goals.tsx`
 
-- Header (custom, like other tabs) "Goals" + a "+" / "New goal" button opening
-  the create sheet.
-- List of `GoalCard`s. Each card:
-  - Title + a type chip (Debt payoff / Savings / Net worth).
-  - For account-linked goals, the account name.
-  - **Progress bar** (filled to `pct`, colored: debt=danger track→primary fill is
-    fine, or use category color; keep it readable on dark theme).
-  - `current` → `target` line, e.g. "$12,400 → $0" with `remaining` ("$12,400 to go").
-  - Status badge: ✅ Achieved / On track / Behind / (none if no deadline), plus
-    target date if set.
-  - Tap a card → edit sheet (title/target/date); include a delete with confirm.
-- Empty state: friendly "Set your first goal" prompt + button.
+- Custom header "Goals" + "New goal" button → opens `GoalSheet`.
+- List of goal cards (use `useGoals` + `useAccounts` + `useNetWorthHistory`,
+  compute `computeGoalProgress` per goal). Each card:
+  - `name` + a kind chip ("Debt payoff" / "Savings" / "Net worth" — derive label
+    from kind + whether account_id is set).
+  - Account name for account-linked goals.
+  - **Progress bar** filled to `pct` (readable on dark theme).
+  - `current → target_value` with `remaining` ("$12,400 to go").
+  - Verdict badge: ✅ Achieved / On track / Behind / (hidden if no_deadline),
+    plus the target date if set.
+  - Tap → edit sheet; include "Abandon goal" with a confirm.
+- Empty state: friendly "Set your first goal" + button.
+- **Optional auto-achieve:** if a goal computes `achieved` but stored
+  `status === 'active'`, call `useMarkAchieved` once (best-effort). Keep it simple
+  and idempotent; skip if it complicates the render.
 
 ## §3 — Create/Edit sheet: `components/GoalSheet.tsx`
 
-Mirror `AddAccountSheet.tsx` structure/theming. Fields:
-- **Type** selector (3 pills): Debt payoff / Savings / Net worth.
-- **Title** text input.
-- **Account** picker — shown only for debt_payoff (filter `useAccounts` to
-  `category === 'debt'`) and savings (filter to `cash` + `investment`). Hidden
-  for net_worth.
-- **Target amount** — numeric. For debt_payoff default `0` (pay it off); editable.
-- **Target date** — optional (a simple date input/picker consistent with how
-  `LogBalanceSheet` handles `snapshot_date`).
-- On create, **capture the baseline**: `start_amount` =
-  the selected account's `latest_balance` (debt/savings) or current net worth
-  (net_worth) at creation time. Compute it in the sheet from the loaded hooks and
-  pass into `useCreateGoal`.
-- Validation: require title, target_amount, and (for account types) an account.
+Mirror `AddAccountSheet.tsx`. Fields:
+- **Goal type** selector (3 pills): Debt payoff / Savings / Net worth. This maps
+  to `kind` + account requirement:
+  - Debt payoff → `kind='payoff'`, account picker filtered to `category==='debt'`.
+  - Savings → `kind='accumulate'`, account picker filtered to `cash`+`investment`.
+  - Net worth → `kind='accumulate'`, NO account picker (`account_id=null`).
+- **Name** text input.
+- **Target amount** → `target_value`. Debt payoff defaults to `0` (editable).
+- **Target date** (optional) — same input style as `LogBalanceSheet`'s date field.
+- On create, **capture `start_value`**: selected account's `latest_balance`
+  (payoff/savings) or current net worth (net worth goal), computed in the sheet
+  from loaded hooks. `start_value` is NOT NULL — always set it.
+- Validation: require name, target_value, and (for payoff/savings) an account.
 
 ## §4 — Ask Delphi integration
 
-In `lib/askDelphi/context.ts`:
-- Extend `FinancialContextInput` with `goals?: { goal: Goal; progress: GoalProgress }[]`.
-- Add a "Goals" section to the output (omit if empty), e.g.:
+`lib/askDelphi/context.ts`:
+- Extend `FinancialContextInput` with
+  `goals?: { goal: Goal; progress: GoalProgress }[]`.
+- Add a "Goals" section (omit if empty), one short line each, cap ~5:
   `- Pay off PayPal: $12,400 → $0, 18% there, behind (due 2026-12-31)`
-  Keep it to one short line per goal, cap at ~5 goals.
 
-In `components/AskDelphiSheet.tsx`:
-- `useGoals()`, compute `computeGoalProgress` per goal with the accounts +
-  netWorthHistory already loaded, pass the array into `buildFinancialContext`.
+`components/AskDelphiSheet.tsx`:
+- `useGoals()`, compute progress per goal with the accounts + netWorthHistory
+  already loaded, pass into `buildFinancialContext`.
 
 ## Acceptance criteria (Claude reviews against these)
 
-- [ ] Goals tab appears and lists goals; empty state shows when none.
-- [ ] Can create each of the 3 goal types; baseline `start_amount` is captured.
-- [ ] Progress bar + status reflect real current balances / net worth.
-- [ ] Debt payoff counts DOWN correctly (progress rises as balance falls).
-- [ ] Edit + delete (with confirm) work and refresh the list.
-- [ ] Ask Delphi references an active goal when asked (e.g. "how are my goals?").
-- [ ] Only summarized goal lines are sent to Delphi (no raw rows).
-- [ ] `npx tsc --noEmit` adds no new errors in changed/added files.
-- [ ] Watch for unused imports (recurring nit) — none in the new files.
+- [ ] Goals tab lists goals; empty state when none.
+- [ ] Can create all 3 types; `kind`/`account_id` set correctly; `start_value`
+      captured; `status='active'`.
+- [ ] Net-worth goal is `accumulate` with `account_id=null` and tracks net worth.
+- [ ] `payoff` progress counts DOWN correctly (rises as balance falls).
+- [ ] Progress bar + verdict reflect real current balances / net worth.
+- [ ] Edit + abandon (with confirm) work and refresh the list.
+- [ ] Ask Delphi references an active goal when asked ("how are my goals?").
+- [ ] Only summarized goal lines sent to Delphi (no raw rows).
+- [ ] No new `tsc` errors in changed/added files; no unused imports.
 
 ## Out of scope
 
-- Category spending caps (that's the separate "Budgets" item).
-- Goal annotations on charts (that's Events, spec #3).
-- Notifications/reminders for goals.
-```
+- `category_target` goals (Budgets item). Net-worth uses `accumulate`, not a new kind.
+- Goal markers on charts (Events, spec #3). Notifications/reminders for goals.
