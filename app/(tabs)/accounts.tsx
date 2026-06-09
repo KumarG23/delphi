@@ -8,16 +8,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
-import { AccountActionSheet } from '@/components/AccountActionSheet';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
-import { EditAccountSheet } from '@/components/EditAccountSheet';
-import { LogBalanceSheet } from '@/components/LogBalanceSheet';
 import {
   ACCOUNT_TYPE_LABELS,
   CATEGORY_LABELS,
   useAccounts,
 } from '@/lib/accounts';
+import { fmtCurrencyFull } from '@/lib/format';
 import {
   categoryColor,
   components,
@@ -35,11 +34,7 @@ const CATEGORY_ORDER: AccountCategory[] = ['debt', 'cash', 'investment'];
 
 function fmtBalance(amount: number | null): string {
   if (amount === null) return '—';
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-  }).format(amount);
+  return fmtCurrencyFull(amount);
 }
 
 function AccountRow({
@@ -105,10 +100,9 @@ function SectionHeader({
 
 export default function AccountsScreen() {
   const { data: accounts, isLoading, error } = useAccounts();
-  const [addOpen, setAddOpen]             = useState(false);
-  const [actionAccount, setActionAccount] = useState<AccountSummary | null>(null);
-  const [editAccount, setEditAccount]     = useState<AccountSummary | null>(null);
-  const [logAccount, setLogAccount]       = useState<AccountSummary | null>(null);
+  const router = useRouter();
+
+  const [addOpen, setAddOpen] = useState(false);
 
   const grouped = useMemo(() => {
     const result: Record<AccountCategory, AccountSummary[]> = {
@@ -178,7 +172,7 @@ export default function AccountsScreen() {
                       <View key={a.id}>
                         <AccountRow
                           account={a}
-                          onPress={() => setActionAccount(a)}
+                          onPress={() => router.push(`/account/${a.id}`)}
                         />
                         {i < catAccounts.length - 1 && (
                           <View style={styles.divider} />
@@ -201,40 +195,6 @@ export default function AccountsScreen() {
       </Pressable>
 
       <AddAccountSheet visible={addOpen} onClose={() => setAddOpen(false)} />
-
-      {actionAccount && (
-        <AccountActionSheet
-          account={actionAccount}
-          visible
-          onClose={() => setActionAccount(null)}
-          onLogBalance={() => {
-            const acc = actionAccount;
-            setActionAccount(null);
-            setLogAccount(acc);
-          }}
-          onEdit={() => {
-            const acc = actionAccount;
-            setActionAccount(null);
-            setEditAccount(acc);
-          }}
-        />
-      )}
-
-      {editAccount && (
-        <EditAccountSheet
-          account={editAccount}
-          visible
-          onClose={() => setEditAccount(null)}
-        />
-      )}
-
-      {logAccount && (
-        <LogBalanceSheet
-          account={logAccount}
-          visible={!!logAccount}
-          onClose={() => setLogAccount(null)}
-        />
-      )}
     </SafeAreaView>
   );
 }

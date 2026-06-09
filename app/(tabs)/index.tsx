@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { useRouter } from 'expo-router';
 
 import {
   categoryColor,
@@ -27,12 +27,12 @@ import {
 import { useNetWorthHistory } from '@/lib/dashboard';
 import { useAccounts, ACCOUNT_TYPE_LABELS, CATEGORY_LABELS } from '@/lib/accounts';
 import { useProfile } from '@/lib/settings';
+import { fmtCurrency, fmtCurrencyFull } from '@/lib/format';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
 import { AskDelphiSheet } from '@/components/AskDelphiSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
-import { ChartErrorBoundary } from '@/components/ChartErrorBoundary';
 import DelphiAvatar from '@/components/DelphiAvatar';
-import { LogBalanceSheet } from '@/components/LogBalanceSheet';
+import { TrendChart } from '@/components/TrendChart';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -55,36 +55,6 @@ const BUCKETS: AccountCategory[] = ['debt', 'cash', 'investment'];
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const T = themeDark;
-
-function fmtCurrency(val: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(val);
-}
-
-function fmtCurrencyFull(val: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(val);
-}
-
-// Parse a 'YYYY-MM-DD' snapshot date without timezone drift and render it as
-// e.g. "May 27, 2026" for the chart tooltip.
-function fmtTooltipDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  if (!y || !m || !d) return iso;
-  return new Date(y, m - 1, d).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
 
 // ─── Account Row ─────────────────────────────────────────────────────────────
 
@@ -168,10 +138,10 @@ export default function DashboardScreen() {
   const [activeBucket, setActiveBucket] = useState<AccountCategory>('debt');
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [logBalanceAccount, setLogBalanceAccount] =
-    useState<AccountSummary | null>(null);
   const [askOpen, setAskOpen] = useState(false);
   const [heroDisplayValue, setHeroDisplayValue] = useState(0);
+
+  const router = useRouter();
 
   // Live viewport width for the responsive two-column desktop layout.
   const { width: viewportWidth } = useWindowDimensions();
@@ -376,96 +346,19 @@ export default function DashboardScreen() {
       )}
 
       {chartData.length >= 2 && (
-        <ChartErrorBoundary
-          fallback={
-            <View style={styles.chartPlaceholder}>
-              <Text style={styles.chartPlaceholderText}>
-                Could not render chart
-              </Text>
-            </View>
-          }
-        >
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart
-              data={chartData}
-              margin={{ top: 10, right: 18, left: 18, bottom: 0 }}
-              onMouseMove={(s: any) => {
-                if (s?.isTooltipActive && s.activePayload?.length) {
-                  setHeroDisplayValue(s.activePayload[0].payload.value);
-                  setChartIsActive(true);
-                } else {
-                  setChartIsActive(false);
-                }
-              }}
-              onMouseLeave={() => {
-                setChartIsActive(false);
-                setHeroDisplayValue(latestValue);
-              }}
-            >
-              <defs>
-                <linearGradient id="dashGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={modeColor} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={modeColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Tooltip
-                cursor={{
-                  stroke: T.textDim,
-                  strokeDasharray: '3 3',
-                  strokeWidth: 1,
-                }}
-                content={({ active, payload }: any) => {
-                  if (!active || !payload?.length) return null;
-                  const p = payload[0].payload;
-                  return (
-                    <div
-                      style={{
-                        backgroundColor: T.card,
-                        border: `1px solid ${T.border}`,
-                        borderRadius: 8,
-                        padding: '6px 10px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                      }}
-                    >
-                      <div
-                        style={{
-                          color: modeColor,
-                          fontWeight: 700,
-                          fontSize: 14,
-                        }}
-                      >
-                        {fmtCurrencyFull(p.value)}
-                      </div>
-                      <div
-                        style={{
-                          color: T.textDim,
-                          fontSize: 11,
-                          marginTop: 2,
-                        }}
-                      >
-                        {fmtTooltipDate(p.date)}
-                      </div>
-                    </div>
-                  );
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={modeColor}
-                strokeWidth={2.2}
-                fill="url(#dashGrad)"
-                activeDot={{
-                  r: 5,
-                  fill: modeColor,
-                  stroke: T.bg,
-                  strokeWidth: 2,
-                }}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </ChartErrorBoundary>
+        <TrendChart
+          data={chartData}
+          color={modeColor}
+          onActiveValueChange={(v) => {
+            if (v != null) {
+              setHeroDisplayValue(v);
+              setChartIsActive(true);
+            } else {
+              setChartIsActive(false);
+              setHeroDisplayValue(latestValue);
+            }
+          }}
+        />
       )}
     </View>
   );
@@ -529,6 +422,7 @@ export default function DashboardScreen() {
             account={account}
             isHighestAprDebt={account.id === highestAprDebtId}
             isLast={idx === bucketAccounts.length - 1}
+            onPress={() => router.push(`/account/${account.id}`)}
           />
         ))
       ) : (
@@ -545,8 +439,8 @@ export default function DashboardScreen() {
   );
 
   // Desktop-only: full-account sidebar (right column). Rows are pressable
-  // and open LogBalanceSheet directly — fast daily logging is the primary
-  // dashboard action.
+  // and navigate to the account detail page (log balance moved into the detail
+  // screen per spec).
   const sidebarEl = (
     <View style={styles.sidebarCard}>
       <Text style={styles.sidebarLabel}>YOUR ACCOUNTS</Text>
@@ -557,7 +451,7 @@ export default function DashboardScreen() {
             account={account}
             isHighestAprDebt={account.id === highestAprDebtId}
             isLast={idx === accounts.length - 1}
-            onPress={() => setLogBalanceAccount(account)}
+            onPress={() => router.push(`/account/${account.id}`)}
           />
         ))
       ) : (
@@ -642,13 +536,6 @@ export default function DashboardScreen() {
       {/* Sheets */}
       <AddAccountSheet visible={addOpen} onClose={() => setAddOpen(false)} />
       <BulkLogSheet visible={bulkOpen} onClose={() => setBulkOpen(false)} />
-      {logBalanceAccount && (
-        <LogBalanceSheet
-          account={logBalanceAccount}
-          visible
-          onClose={() => setLogBalanceAccount(null)}
-        />
-      )}
       <AskDelphiSheet visible={askOpen} onClose={() => setAskOpen(false)} />
     </SafeAreaView>
   );
