@@ -32,7 +32,9 @@ import { AddAccountSheet } from '@/components/AddAccountSheet';
 import { AskDelphiSheet } from '@/components/AskDelphiSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
 import DelphiAvatar from '@/components/DelphiAvatar';
+import { EventsSheet } from '@/components/EventsSheet';
 import { TrendChart } from '@/components/TrendChart';
+import { useEvents } from '@/lib/events';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -139,6 +141,7 @@ export default function DashboardScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
+  const [eventsOpen, setEventsOpen] = useState(false);
   const [heroDisplayValue, setHeroDisplayValue] = useState(0);
 
   const router = useRouter();
@@ -151,6 +154,8 @@ export default function DashboardScreen() {
   const { data: netWorthHistory } = useNetWorthHistory();
   const { data: accounts } = useAccounts();
   const { data: profile } = useProfile();
+  const { data: events = [] } = useEvents();
+  const eventMarkers = events.map((e) => ({ date: e.event_date, label: e.label }));
 
   // Greeting: time-of-day + display name
   const greeting = useMemo(() => {
@@ -329,6 +334,15 @@ export default function DashboardScreen() {
 
   const chartEl = (
     <View style={styles.chartContainer}>
+      {/* Small affordance in the chart "header" area per spec (global events on net-worth chart) */}
+      <Pressable
+        style={styles.addEventBtn}
+        onPress={() => setEventsOpen(true)}
+        hitSlop={8}
+      >
+        <Ionicons name="flag-outline" size={14} color={T.textMuted} />
+      </Pressable>
+
       {chartData.length === 0 && (
         <View style={styles.chartPlaceholder}>
           <Text style={styles.chartPlaceholderText}>
@@ -358,6 +372,7 @@ export default function DashboardScreen() {
               setHeroDisplayValue(latestValue);
             }
           }}
+          markers={eventMarkers}
         />
       )}
     </View>
@@ -537,6 +552,7 @@ export default function DashboardScreen() {
       <AddAccountSheet visible={addOpen} onClose={() => setAddOpen(false)} />
       <BulkLogSheet visible={bulkOpen} onClose={() => setBulkOpen(false)} />
       <AskDelphiSheet visible={askOpen} onClose={() => setAskOpen(false)} />
+      <EventsSheet visible={eventsOpen} onClose={() => setEventsOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -681,6 +697,8 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 220,
     marginBottom: space['6'],
+    // position relative so addEventBtn can be absolutely placed in "header" area
+    position: 'relative',
   },
   chartPlaceholder: {
     flex: 1,
@@ -697,6 +715,18 @@ const styles = StyleSheet.create({
     color: T.textDim,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  // Subtle add-event affordance in chart header area (flag icon)
+  addEventBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    zIndex: 2,
+    padding: 4,
+    borderRadius: radius.pill,
+    backgroundColor: T.card,
+    borderWidth: 1,
+    borderColor: T.border,
   },
   rangeRow: {
     flexDirection: 'row',

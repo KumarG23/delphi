@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { Text, View } from 'react-native';
-import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
+import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary';
 import {
@@ -16,6 +16,9 @@ export interface TrendChartProps {
   color: string;
   onActiveValueChange?: (value: number | null) => void;
   height?: number;
+  // OPTIONAL markers for v1 global events (dashboard net-worth chart only).
+  // Existing callers (e.g. account detail) pass nothing and must render identically.
+  markers?: { date: string; label: string }[];
 }
 
 /**
@@ -30,9 +33,26 @@ export function TrendChart({
   color,
   onActiveValueChange,
   height = 220,
+  markers = [],
 }: TrendChartProps) {
   // Stable unique id per chart instance for the <linearGradient>.
   const gradId = useId().replace(/:/g, '_');
+
+  // Snap marker date to nearest data point date (for ReferenceLine x alignment).
+  // Events rarely fall exactly on a snapshot; use the closest in the *provided* data.
+  const snapMarkerDate = (target: string): string => {
+    if (!data.length) return target;
+    let best = data[0].date;
+    let bestDiff = Math.abs(new Date(target).getTime() - new Date(best).getTime());
+    for (const pt of data) {
+      const diff = Math.abs(new Date(target).getTime() - new Date(pt.date).getTime());
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        best = pt.date;
+      }
+    }
+    return best;
+  };
 
   return (
     <ChartErrorBoundary
@@ -84,6 +104,11 @@ export function TrendChart({
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
+
+          {/* Hidden XAxis (categorical on date) so ReferenceLines can key by date string.
+              Must not affect layout for callers that don't pass markers (area fills width as before). */}
+          <XAxis dataKey="date" hide />
+
           <Tooltip
             cursor={{
               stroke: T.textDim,
@@ -125,6 +150,28 @@ export function TrendChart({
               );
             }}
           />
+
+          {/* Subtle dashed milestone markers (snapped to nearest data point date).
+              Only rendered when provided; otherwise identical to before. Keep visually subtle. */}
+          {markers.map((m, idx) => {
+            const snapped = snapMarkerDate(m.date);
+            const short = m.label.length > 14 ? m.label.slice(0, 11) + '…' : m.label;
+            return (
+              <ReferenceLine
+                key={idx}
+                x={snapped}
+                stroke={T.textDim}
+                strokeDasharray="2 4"
+                label={{
+                  value: short,
+                  position: 'top',
+                  fill: T.textDim,
+                  fontSize: 10,
+                }}
+              />
+            );
+          })}
+
           <Area
             type="monotone"
             dataKey="value"
