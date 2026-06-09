@@ -1,9 +1,11 @@
 import type { AccountSummary, MonthlyCashflow, NetWorthPoint } from '@/types/database';
+import type { Goal, GoalProgress } from '@/lib/goals';
 
 export interface FinancialContextInput {
   accounts?: AccountSummary[] | null;
   netWorthHistory?: NetWorthPoint[] | null;
   cashflow?: MonthlyCashflow | null;
+  goals?: { goal: Goal; progress: GoalProgress }[];
 }
 
 function fmtUSD(n: number): string {
@@ -111,6 +113,20 @@ export function buildFinancialContext(input: FinancialContextInput): string {
       `This month's cashflow: income ${fmtUSD(cashflow.total_income)}, ` +
       `expense ${fmtUSD(cashflow.total_expense)}, net ${fmtUSD(cashflow.net_cashflow)}`
     );
+  }
+
+  // Active goals (token-light summary; cap ~5). Net-worth uses accumulate + account_id=null.
+  const goals = input.goals ?? [];
+  if (goals.length > 0) {
+    lines.push('Goals:');
+    goals.slice(0, 5).forEach(({ goal, progress }) => {
+      const pct = Math.round(progress.pct);
+      const due = goal.target_date ? ` (due ${goal.target_date})` : '';
+      lines.push(
+        `- ${goal.name}: ${fmtUSD(goal.start_value)} → ${fmtUSD(goal.target_value)}, ` +
+        `${pct}% there, ${progress.verdict}${due}`
+      );
+    });
   }
 
   return lines.join('\n');

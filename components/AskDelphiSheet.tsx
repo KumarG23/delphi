@@ -16,6 +16,7 @@ import { useAccounts } from '@/lib/accounts';
 import { useAskDelphi, type ChatMessage } from '@/lib/askDelphi';
 import { buildFinancialContext } from '@/lib/askDelphi/context';
 import { DELPHI_PERSONA } from '@/lib/askDelphi/persona';
+import { computeGoalProgress, useGoals } from '@/lib/goals';
 import { useCurrentCashflow } from '@/lib/spending';
 import { useNetWorthHistory } from '@/lib/dashboard';
 import DelphiAvatar from '@/components/DelphiAvatar';
@@ -65,6 +66,7 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
 
   const { data: accounts } = useAccounts();
   const { data: netWorthHistory } = useNetWorthHistory();
+  const { data: goalsRaw = [] } = useGoals();
   const currentMonth = getCurrentMonth();
   const { data: cashflow } = useCurrentCashflow(currentMonth);
 
@@ -100,9 +102,13 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
   }, [messages, isPending, visible]);
 
   // Full system message: persona FIRST (Ollama's request system message replaces
-  // the Modelfile SYSTEM), then the live financial snapshot.
+  // the Modelfile SYSTEM), then the live financial snapshot (now including goals).
   function buildSystemMessage(): string {
-    const snapshot = buildFinancialContext({ accounts, netWorthHistory, cashflow });
+    const goalProgresses = goalsRaw.map((goal) => ({
+      goal,
+      progress: computeGoalProgress(goal, { accounts, netWorthHistory }),
+    }));
+    const snapshot = buildFinancialContext({ accounts, netWorthHistory, cashflow, goals: goalProgresses });
     return `${DELPHI_PERSONA}\n\n## The user's current financial snapshot\n${snapshot}`;
   }
 
