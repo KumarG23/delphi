@@ -23,7 +23,6 @@ import { EditAccountSheet } from '@/components/EditAccountSheet';
 import { TrendChart } from '@/components/TrendChart';
 import {
   categoryColor,
-  components,
   fontSize,
   fontWeight,
   letterSpacing,
