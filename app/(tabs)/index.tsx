@@ -12,8 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
 
-import { infoDialog } from '@/lib/dialog';
-
 import {
   categoryColor,
   components,
@@ -30,6 +28,7 @@ import { useNetWorthHistory } from '@/lib/dashboard';
 import { useAccounts, ACCOUNT_TYPE_LABELS, CATEGORY_LABELS } from '@/lib/accounts';
 import { useProfile } from '@/lib/settings';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
+import { AskDelphiSheet } from '@/components/AskDelphiSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary';
 import DelphiAvatar from '@/components/DelphiAvatar';
@@ -171,6 +170,7 @@ export default function DashboardScreen() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [logBalanceAccount, setLogBalanceAccount] =
     useState<AccountSummary | null>(null);
+  const [askOpen, setAskOpen] = useState(false);
   const [heroDisplayValue, setHeroDisplayValue] = useState(0);
 
   // Live viewport width for the responsive two-column desktop layout.
@@ -587,16 +587,14 @@ export default function DashboardScreen() {
   const askDelphiEl = (
     <TouchableOpacity
       style={styles.delphiCard}
-      onPress={() => {
-        infoDialog('Coming soon', 'Ask Delphi is coming in Phase 2.');
-      }}
+      onPress={() => setAskOpen(true)}
       activeOpacity={0.8}
     >
       <View style={styles.delphiLeft}>
         <Text style={styles.delphiSparkle}>✨</Text>
         <View>
           <Text style={styles.delphiTitle}>Ask Delphi</Text>
-          <Text style={styles.delphiSub}>Coming in Phase 2</Text>
+          <Text style={styles.delphiSub}>Your money coach</Text>
         </View>
       </View>
       <Ionicons name="chevron-forward" size={16} color={palette.gold} />
@@ -651,6 +649,7 @@ export default function DashboardScreen() {
           onClose={() => setLogBalanceAccount(null)}
         />
       )}
+      <AskDelphiSheet visible={askOpen} onClose={() => setAskOpen(false)} />
     </SafeAreaView>
   );
 }
