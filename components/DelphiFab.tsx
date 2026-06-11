@@ -125,15 +125,15 @@ const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
     bottom: 88, // above tab bar + safe area approx
-    right: space['4'],
+    left: space['4'], // bottom-left: avoids screen "+" FABs which live bottom-right
     zIndex: z.fab,
     flexDirection: 'row',
     alignItems: 'center',
-    // bubble will be absolutely positioned to the left
+    // bubble is absolutely positioned to the right of the FAB
   },
   bubble: {
     position: 'absolute',
-    right: components.fabSize + space['2'],
+    left: components.fabSize + space['2'],
     backgroundColor: T.card,
     borderWidth: 1,
     borderColor: T.border,
