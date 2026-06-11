@@ -266,6 +266,17 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
                 returnKeyType="send"
                 onSubmitEditing={handleSend}
                 blurOnSubmit={false}
+                // Web: Enter sends, Shift+Enter inserts a newline (standard chat UX).
+                onKeyPress={(e: any) => {
+                  if (
+                    Platform.OS === 'web' &&
+                    e.nativeEvent?.key === 'Enter' &&
+                    !e.nativeEvent?.shiftKey
+                  ) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
               />
               <Pressable
                 onPress={handleSend}
