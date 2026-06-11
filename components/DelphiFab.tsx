@@ -32,11 +32,6 @@ export default function DelphiFab() {
   const opacity = useRef(new Animated.Value(0)).current;
   const timers = useRef<{ show?: any; hide?: any }>({});
 
-  if (open) {
-    // Hide FAB (and bubble) while sheet is open
-    return null;
-  }
-
   const showBubble = () => {
     setBubbleVisible(true);
     Animated.timing(opacity, {
@@ -88,6 +83,12 @@ export default function DelphiFab() {
   const handlePress = () => {
     setOpen(true);
   };
+
+  // Hide FAB (and bubble) while the sheet is open. Placed AFTER all hooks so
+  // hook order stays stable across renders (Rules of Hooks).
+  if (open) {
+    return null;
+  }
 
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
