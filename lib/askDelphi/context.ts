@@ -129,5 +129,17 @@ export function buildFinancialContext(input: FinancialContextInput): string {
     });
   }
 
+  // If no real financial figures were added (e.g. a brand-new account with
+  // nothing logged), say so explicitly so the model never invents numbers.
+  if (lines.length === 1) {
+    lines.push(
+      'NO FINANCIAL DATA YET: the user has not added any accounts or logged any ' +
+      'balances. You have ZERO real figures for them. Do NOT state, invent, ' +
+      'estimate, or assume ANY dollar amounts, incomes, budgets, or balances. ' +
+      'Warmly encourage them to add an account and log a balance so you can help ' +
+      'with real numbers.'
+    );
+  }
+
   return lines.join('\n');
 }
