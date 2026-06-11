@@ -29,12 +29,12 @@ import { useAccounts, ACCOUNT_TYPE_LABELS, CATEGORY_LABELS } from '@/lib/account
 import { useProfile } from '@/lib/settings';
 import { fmtCurrency, fmtCurrencyFull } from '@/lib/format';
 import { AddAccountSheet } from '@/components/AddAccountSheet';
-import { AskDelphiSheet } from '@/components/AskDelphiSheet';
 import { BulkLogSheet } from '@/components/BulkLogSheet';
 import DelphiAvatar from '@/components/DelphiAvatar';
 import { EventsSheet } from '@/components/EventsSheet';
 import { TrendChart } from '@/components/TrendChart';
 import { useEvents } from '@/lib/events';
+import { useAskDelphiStore } from '@/store/askDelphi';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -140,11 +140,11 @@ export default function DashboardScreen() {
   const [activeBucket, setActiveBucket] = useState<AccountCategory>('debt');
   const [addOpen, setAddOpen] = useState(false);
   const [bulkOpen, setBulkOpen] = useState(false);
-  const [askOpen, setAskOpen] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
   const [heroDisplayValue, setHeroDisplayValue] = useState(0);
 
   const router = useRouter();
+  const setAskOpen = useAskDelphiStore((s) => s.setOpen);
 
   // Live viewport width for the responsive two-column desktop layout.
   const { width: viewportWidth } = useWindowDimensions();
@@ -551,7 +551,6 @@ export default function DashboardScreen() {
       {/* Sheets */}
       <AddAccountSheet visible={addOpen} onClose={() => setAddOpen(false)} />
       <BulkLogSheet visible={bulkOpen} onClose={() => setBulkOpen(false)} />
-      <AskDelphiSheet visible={askOpen} onClose={() => setAskOpen(false)} />
       <EventsSheet visible={eventsOpen} onClose={() => setEventsOpen(false)} />
     </SafeAreaView>
   );
