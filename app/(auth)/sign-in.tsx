@@ -104,7 +104,7 @@ export default function SignInScreen() {
 
         {/* Sign-up link */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Text style={styles.footerText}>Don’t have an account? </Text>
           <Link href="/(auth)/sign-up" asChild>
             <Pressable>
               <Text style={styles.footerLink}>Sign up</Text>

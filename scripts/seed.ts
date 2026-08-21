@@ -155,7 +155,7 @@ function generateBalances(def: AccountDef): number[] {
 
 // ─── transaction data ─────────────────────────────────────────────────────────
 
-const EXPENSE_MERCHANTS: Array<{ merchant: string; categoryName: string; minAmt: number; maxAmt: number }> = [
+const EXPENSE_MERCHANTS: { merchant: string; categoryName: string; minAmt: number; maxAmt: number }[] = [
   { merchant: 'Whole Foods Market',    categoryName: 'Groceries',      minAmt: 45,  maxAmt: 180 },
   { merchant: "Trader Joe's",          categoryName: 'Groceries',      minAmt: 30,  maxAmt: 120 },
   { merchant: 'Costco',                categoryName: 'Groceries',      minAmt: 80,  maxAmt: 250 },

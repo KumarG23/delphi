@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import DelphiAvatar from '@/components/DelphiAvatar';
@@ -30,18 +30,21 @@ export default function DelphiFab() {
   const [bubbleVisible, setBubbleVisible] = useState(false);
 
   const opacity = useRef(new Animated.Value(0)).current;
-  const timers = useRef<{ show?: any; hide?: any }>({});
+  const timers = useRef<{
+    show?: ReturnType<typeof setTimeout>;
+    hide?: ReturnType<typeof setTimeout>;
+  }>({});
 
-  const showBubble = () => {
+  const showBubble = useCallback(() => {
     setBubbleVisible(true);
     Animated.timing(opacity, {
       toValue: 1,
       duration: 250,
       useNativeDriver: true,
     }).start();
-  };
+  }, [opacity]);
 
-  const hideBubble = (cb?: () => void) => {
+  const hideBubble = useCallback((cb?: () => void) => {
     Animated.timing(opacity, {
       toValue: 0,
       duration: 250,
@@ -50,10 +53,11 @@ export default function DelphiFab() {
       setBubbleVisible(false);
       cb?.();
     });
-  };
+  }, [opacity]);
 
   useEffect(() => {
     const tips = TIPS;
+    const activeTimers = timers.current;
 
     const scheduleNext = (idx: number) => {
       // Show current tip
@@ -61,10 +65,10 @@ export default function DelphiFab() {
       showBubble();
 
       // After ~6s, hide
-      timers.current.show = setTimeout(() => {
+      activeTimers.show = setTimeout(() => {
         hideBubble(() => {
           // After hide, wait ~50s then show next
-          timers.current.hide = setTimeout(() => {
+          activeTimers.hide = setTimeout(() => {
             scheduleNext((idx + 1) % tips.length);
           }, 50000);
         });
@@ -75,10 +79,10 @@ export default function DelphiFab() {
     scheduleNext(0);
 
     return () => {
-      if (timers.current.show) clearTimeout(timers.current.show);
-      if (timers.current.hide) clearTimeout(timers.current.hide);
+      if (activeTimers.show) clearTimeout(activeTimers.show);
+      if (activeTimers.hide) clearTimeout(activeTimers.hide);
     };
-  }, []);
+  }, [hideBubble, showBubble]);
 
   const handlePress = () => {
     setOpen(true);

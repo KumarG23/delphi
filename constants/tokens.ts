@@ -115,7 +115,7 @@ export const themeLight = {
   info:        palette.blue,
 } as const;
 
-export type Theme = typeof themeDark;
+export type Theme = { [Key in keyof typeof themeDark]: string };
 
 
 // ───────────────────────────────────────────────────────────────────────────

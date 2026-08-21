@@ -24,12 +24,12 @@ import {
   fontSize,
   fontWeight,
   letterSpacing,
+  palette,
   radius,
   space,
   themeDark,
   tint,
 } from '@/constants/tokens';
-import { palette } from '@/constants/tokens';
 
 const T = themeDark;
 
@@ -148,7 +148,7 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
         content: replyText || "Meow. (The model came back empty — try again?)",
       };
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (e) {
+    } catch {
       // Surface in-character error as an assistant bubble (never raw crash)
       const assistantErr: UIMessage = {
         id: makeId(),

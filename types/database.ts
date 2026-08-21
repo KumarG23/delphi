@@ -51,6 +51,7 @@ export type Database = {
           default_currency?: string;
           updated_at?: string;
         };
+        Relationships: [];
       };
       accounts: {
         Row: {
@@ -97,6 +98,7 @@ export type Database = {
           archived_at?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       balance_snapshots: {
         Row: {
@@ -143,6 +145,7 @@ export type Database = {
           entered_at?: string;
           is_active?: boolean;
         };
+        Relationships: [];
       };
       categories: {
         Row: {
@@ -186,6 +189,7 @@ export type Database = {
           sort_order?: number;
           updated_at?: string;
         };
+        Relationships: [];
       };
       transactions: {
         Row: {
@@ -240,6 +244,7 @@ export type Database = {
           is_active?: boolean;
           updated_at?: string;
         };
+        Relationships: [];
       };
       goals: {
         Row: {
@@ -286,6 +291,7 @@ export type Database = {
           achieved_at?: string | null;
           updated_at?: string;
         };
+        Relationships: [];
       };
       events: {
         Row: {
@@ -317,6 +323,7 @@ export type Database = {
           account_id?: string | null;
           category?: AccountCategory | null;
         };
+        Relationships: [];
       };
     };
     Views: {
@@ -332,6 +339,7 @@ export type Database = {
           payment_due_date: string | null;
           entered_at: string;
         };
+        Relationships: [];
       };
       v_net_worth_history: {
         Row: {
@@ -342,6 +350,7 @@ export type Database = {
           total_debt: number;
           net_worth: number;
         };
+        Relationships: [];
       };
       v_account_summary: {
         Row: {
@@ -362,6 +371,7 @@ export type Database = {
           payment_due_date: string | null;
           days_since_last_entry: number | null;
         };
+        Relationships: [];
       };
       v_monthly_spending_by_category: {
         Row: {
@@ -375,6 +385,7 @@ export type Database = {
           transaction_count: number;
           total: number;
         };
+        Relationships: [];
       };
       v_monthly_cashflow: {
         Row: {
@@ -384,6 +395,7 @@ export type Database = {
           total_expense: number;
           net_cashflow: number;
         };
+        Relationships: [];
       };
       v_account_computed_balance: {
         Row: {
@@ -396,6 +408,7 @@ export type Database = {
           net_change_since_last: number;
           computed_balance: number | null;
         };
+        Relationships: [];
       };
     };
     Enums: {

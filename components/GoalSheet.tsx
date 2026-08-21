@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -76,7 +76,7 @@ export function GoalSheet({ visible, onClose, goal }: Props) {
     return false;
   });
 
-  function reset() {
+  const reset = useCallback(() => {
     if (isEditing && goal) {
       // Prefill for edit (type/account derived, not changeable here)
       const derivedType: GoalType = goal.kind === 'payoff' ? 'payoff' : (goal.account_id ? 'savings' : 'networth');
@@ -92,13 +92,13 @@ export function GoalSheet({ visible, onClose, goal }: Props) {
       setTargetStr('0'); // sensible default for payoff
       setDateStr('');
     }
-  }
+  }, [goal, isEditing]);
 
   useEffect(() => {
     if (visible) {
       reset();
     }
-  }, [visible, goal]);
+  }, [visible, reset]);
 
   function handleClose() {
     reset();
@@ -365,7 +365,7 @@ export function GoalSheet({ visible, onClose, goal }: Props) {
                     keyboardType="numbers-and-punctuation"
                     returnKeyType="done"
                   />
-                  <Text style={styles.hint}>We will use this for "on track / behind" verdicts</Text>
+                  <Text style={styles.hint}>We will use this for “on track / behind” verdicts</Text>
                 </View>
 
                 {/* Start value info (captured or existing) */}

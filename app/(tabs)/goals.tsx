@@ -36,12 +36,6 @@ function getKindLabel(goal: Goal): string {
   return 'Net worth';
 }
 
-function getVerdictColor(verdict: string): string {
-  if (verdict === 'achieved') return T.success;
-  if (verdict === 'on_track') return T.primary;
-  if (verdict === 'behind') return T.danger;
-  return T.textMuted;
-}
 
 export default function GoalsScreen() {
   const { data: goals = [], isLoading } = useGoals();

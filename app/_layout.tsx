@@ -99,7 +99,7 @@ function RootLayoutNav() {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [setInitialized, setSession]);
 
   // Redirect whenever session or route changes
   useEffect(() => {
@@ -114,7 +114,7 @@ function RootLayoutNav() {
       // Just signed in → go to main app
       router.replace('/(tabs)');
     }
-  }, [session, initialized, segments]);
+  }, [session, initialized, segments, router]);
 
   return (
     <>

@@ -84,7 +84,7 @@ export function AddTransactionSheet({ visible, onClose }: Props) {
     } else if (addTransaction.isSuccess && !accountId) {
       onClose();
     }
-  }, [addTransaction.isSuccess]);
+  }, [addTransaction.isSuccess, accountId, onClose]);
 
   useEffect(() => {
     if (
@@ -97,7 +97,7 @@ export function AddTransactionSheet({ visible, onClose }: Props) {
       setNudgeAccountName(acct?.nickname ?? acct?.name ?? null);
       setShowNudge(true);
     }
-  }, [computedBalanceQuery.data, pendingNudgeAccountId]);
+  }, [computedBalanceQuery.data, pendingNudgeAccountId, accounts]);
 
   async function handleSubmit() {
     const raw = amountStr.trim().replace(/[^0-9.]/g, '');

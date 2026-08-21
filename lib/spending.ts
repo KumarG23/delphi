@@ -47,7 +47,7 @@ export function useCurrentCashflow(month: string) {
         .single();
       // PGRST116 = no rows found; treat as null rather than an error
       if (error && error.code !== 'PGRST116') throw error;
-      return (data as MonthlyCashflow) ?? null;
+      return data ?? null;
     },
   });
 }

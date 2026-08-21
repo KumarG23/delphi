@@ -24,7 +24,6 @@ import {
   radius,
   space,
   themeDark,
-  tint,
 } from '@/constants/tokens';
 import type { AccountSummary } from '@/types/database';
 
