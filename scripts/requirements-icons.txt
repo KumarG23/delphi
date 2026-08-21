@@ -1,0 +1,2 @@
+# Dependency for scripts/generate-delphi-icons.py
+Pillow>=10,<13
