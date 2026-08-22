@@ -2,7 +2,7 @@
   "expo": {
     "name": "Delphi",
     "slug": "delphi",
-    "version": "1.0.2",
+    "version": "1.0.6",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "delphi",
@@ -23,7 +23,7 @@
         "backgroundColor": "#141414"
       },
       "package": "com.delphi.app",
-      "versionCode": 3,
+      "versionCode": 7,
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },

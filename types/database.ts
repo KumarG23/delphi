@@ -14,6 +14,7 @@ export type ReminderCadence = 'monthly' | 'biweekly' | 'weekly' | 'off';
 export type TransactionKind = 'expense' | 'income' | 'transfer';
 export type TransactionSource = 'manual' | 'csv_import' | 'plaid';
 export type CategoryType = 'expense' | 'income';
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
   public: {
@@ -421,7 +422,16 @@ export type Database = {
       transaction_source: TransactionSource;
       category_type: CategoryType;
     };
-    Functions: Record<string, never>;
+    Functions: {
+      import_statement_batch: {
+        Args: {
+          p_account_id: string;
+          p_transactions?: Json;
+          p_snapshot?: Json | null;
+        };
+        Returns: Json;
+      };
+    };
   };
 };
 

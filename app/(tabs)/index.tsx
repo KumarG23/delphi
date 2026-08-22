@@ -34,6 +34,7 @@ import DelphiAvatar from '@/components/DelphiAvatar';
 import { EventsSheet } from '@/components/EventsSheet';
 import { TrendChart } from '@/components/TrendChart';
 import { useEvents } from '@/lib/events';
+import { filterChartPointsWithBaseline } from '@/lib/chart';
 import { useAskDelphiStore } from '@/store/askDelphi';
 import type { AccountCategory, AccountSummary } from '@/types/database';
 
@@ -175,17 +176,16 @@ export default function DashboardScreen() {
   // Filtered chart data
   const chartData = useMemo(() => {
     if (!netWorthHistory?.length) return [];
-    const now = Date.now();
     const days = RANGE_DAYS[range];
-    const cutoff = now - days * 86400000;
-    return netWorthHistory
-      .filter(p =>
-        days === Infinity || new Date(p.snapshot_date).getTime() >= cutoff
-      )
+    const cutoff = days === Infinity ? null : Date.now() - days * 86400000;
+    const points = netWorthHistory.map(p => ({
+      value: mode === 'wealth' ? p.net_worth : p.total_debt,
+      date: p.snapshot_date,
+    }));
+    return filterChartPointsWithBaseline(points, cutoff)
       .map((p, i) => ({
         x: i,
-        value: mode === 'wealth' ? p.net_worth : p.total_debt,
-        date: p.snapshot_date,
+        ...p,
       }));
   }, [netWorthHistory, range, mode]);
 

@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AddTransactionSheet } from '@/components/AddTransactionSheet';
+import { StatementImportSheet } from '@/components/StatementImportSheet';
 import { useMonthlySpending, useCashflowHistory, useCurrentCashflow } from '@/lib/spending';
 import { useTransactions } from '@/lib/transactions';
 import {
@@ -93,6 +94,7 @@ function KindPill({ label, active, onPress }: { label: string; active: boolean; 
 export default function SpendingScreen() {
   const [selectedMonth, setSelectedMonth] = useState<string>(today());
   const [addOpen, setAddOpen] = useState(false);
+  const [statementOpen, setStatementOpen] = useState(false);
   const [kindFilter, setKindFilter] = useState<KindFilter>('all');
   const [showAll, setShowAll] = useState(false);
 
@@ -162,13 +164,23 @@ export default function SpendingScreen() {
       {/* ── Header ── */}
       <View style={styles.screenHeader}>
         <Text style={styles.screenTitle}>Spending</Text>
-        <Pressable
-          style={({ pressed }) => [styles.headerFab, pressed && { opacity: 0.75 }]}
-          onPress={() => setAddOpen(true)}
-          hitSlop={8}
-        >
-          <Text style={styles.headerFabPlus}>+</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={({ pressed }) => [styles.importBtn, pressed && { opacity: 0.75 }]}
+            onPress={() => setStatementOpen(true)}
+            hitSlop={8}
+          >
+            <Text style={styles.importBtnIcon}>⇩</Text>
+            <Text style={styles.importBtnText}>Statement</Text>
+          </Pressable>
+          <Pressable
+            style={({ pressed }) => [styles.headerFab, pressed && { opacity: 0.75 }]}
+            onPress={() => setAddOpen(true)}
+            hitSlop={8}
+          >
+            <Text style={styles.headerFabPlus}>+</Text>
+          </Pressable>
+        </View>
       </View>
 
       {isLoading && (
@@ -404,6 +416,7 @@ export default function SpendingScreen() {
       </Pressable>
 
       <AddTransactionSheet visible={addOpen} onClose={() => setAddOpen(false)} />
+      <StatementImportSheet visible={statementOpen} onClose={() => setStatementOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -428,6 +441,32 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.extrabold,
     color: T.text,
     letterSpacing: letterSpacing.tight,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space['3'],
+  },
+  importBtn: {
+    minHeight: 36,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: space['3'],
+    gap: space['2'],
+  },
+  importBtnIcon: {
+    color: T.primary,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+  },
+  importBtnText: {
+    color: T.text,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
   },
   headerFab: {
     width: 36,

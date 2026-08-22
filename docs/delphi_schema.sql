@@ -215,6 +215,9 @@ create index idx_tx_user_date            on transactions(user_id, transaction_da
 create index idx_tx_user_kind_date       on transactions(user_id, kind, transaction_date desc) where is_active;
 create index idx_tx_user_category_date   on transactions(user_id, category_id, transaction_date desc) where is_active;
 create index idx_tx_account_date         on transactions(account_id, transaction_date desc) where is_active and account_id is not null;
+alter table transactions
+  add constraint transactions_user_source_external_unique
+  unique (user_id, source, external_id);
 
 comment on table transactions is 'Every expense/income event. Account linkage optional. amount is always positive; kind tells direction.';
 comment on column transactions.amount is 'Always positive. Direction is determined by kind (expense / income / transfer).';
@@ -530,9 +533,17 @@ create policy "accounts: update own" on accounts for update using (auth.uid() = 
 create policy "accounts: delete own" on accounts for delete using (auth.uid() = user_id);
 
 -- balance_snapshots
-create policy "snapshots: read own"   on balance_snapshots for select using (auth.uid() = user_id);
-create policy "snapshots: insert own" on balance_snapshots for insert with check (auth.uid() = user_id);
-create policy "snapshots: update own" on balance_snapshots for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "snapshots: read own" on balance_snapshots for select using (auth.uid() = user_id);
+create policy "snapshots: insert own" on balance_snapshots for insert with check (
+  auth.uid() = user_id
+  and exists (select 1 from accounts a where a.id = account_id and a.user_id = auth.uid())
+);
+create policy "snapshots: update own" on balance_snapshots for update
+using (auth.uid() = user_id)
+with check (
+  auth.uid() = user_id
+  and exists (select 1 from accounts a where a.id = account_id and a.user_id = auth.uid())
+);
 create policy "snapshots: delete own" on balance_snapshots for delete using (auth.uid() = user_id);
 
 -- categories
@@ -543,8 +554,26 @@ create policy "categories: delete own" on categories for delete using (auth.uid(
 
 -- transactions
 create policy "transactions: read own"   on transactions for select using (auth.uid() = user_id);
-create policy "transactions: insert own" on transactions for insert with check (auth.uid() = user_id);
-create policy "transactions: update own" on transactions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "transactions: insert own" on transactions for insert with check (
+  auth.uid() = user_id
+  and (account_id is null or exists (
+    select 1 from accounts a where a.id = account_id and a.user_id = auth.uid()
+  ))
+  and (category_id is null or exists (
+    select 1 from categories c where c.id = category_id and c.user_id = auth.uid()
+  ))
+);
+create policy "transactions: update own" on transactions for update
+using (auth.uid() = user_id)
+with check (
+  auth.uid() = user_id
+  and (account_id is null or exists (
+    select 1 from accounts a where a.id = account_id and a.user_id = auth.uid()
+  ))
+  and (category_id is null or exists (
+    select 1 from categories c where c.id = category_id and c.user_id = auth.uid()
+  ))
+);
 create policy "transactions: delete own" on transactions for delete using (auth.uid() = user_id);
 
 -- goals
@@ -562,7 +591,10 @@ create policy "events: delete own" on events for delete using (auth.uid() = user
 
 -- ═══════════════════════════════════════════════════════════════════════════
 --  END OF SCHEMA
---  Run this file in the Supabase SQL editor in order. After it succeeds:
+--  Run this base schema in the Supabase SQL editor, then apply every file in
+--  supabase/migrations/ in lexical order. The migrations are mandatory: they
+--  contain the current statement-import constraints, RLS hardening, and RPC.
+--  After all schema and migration files succeed:
 --    1. Sign up a test user — confirm a profiles row + ~17 categories appear.
 --    2. Insert an account + a snapshot + a transaction — confirm views compute.
 --    3. Sign in as a second user — confirm RLS isolates their data completely.

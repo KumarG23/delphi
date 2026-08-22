@@ -1,0 +1,25 @@
+[Unit]
+Description=Delphi private PDF statement importer
+After=network-online.target tailscaled.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/neal/services/delphi-statement-importer
+EnvironmentFile=/home/neal/.config/delphi-statement-importer/env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/neal/services/delphi-statement-importer/.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8790 --no-access-log
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=30
+TimeoutStopSec=15
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=768M
+
+[Install]
+WantedBy=default.target
