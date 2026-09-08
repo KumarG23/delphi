@@ -4,9 +4,9 @@
 
 A code change is not complete merely because it works locally. Before ending a work session or reporting completion:
 
-1. Review the complete tracked and untracked diff for correctness, security, secrets, financial data, and accidental files.
+1. Review the changed scope and affected callers/contracts; inspect intended tracked and untracked changes for correctness, security, secrets, financial data, and accidental files.
 2. Run the repository's relevant tests, type checks, lint, and platform/build checks.
-3. Obtain an independent code review for substantive code changes and resolve blocking findings.
+3. Use concise self-review by default. Name a concrete risk before broader tests or independent review; high-risk boundaries should receive scoped independent review under `/home/neal/AGENTS.md`. No routine whole-candidate review, repeated gates or parent re-verification.
 4. Commit the coherent change with a descriptive conventional commit message.
 5. Push the current branch to its configured GitHub upstream.
 6. Verify `HEAD` equals the upstream branch and the working tree is clean.
