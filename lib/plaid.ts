@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { ACCOUNTS_KEY } from './accounts';
 import { NET_WORTH_KEY } from './dashboard';
@@ -7,6 +7,7 @@ import { supabase } from './supabase';
 import { TRANSACTIONS_KEY } from './transactions';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? '';
+export const PLAID_ACCOUNT_STATUS_KEY = ['plaid-account-status'] as const;
 
 type LinkTokenResponse = {
   link_token: string;
@@ -48,6 +49,15 @@ export type PlaidSyncResponse = {
     success: boolean;
     error?: string;
   }>;
+};
+
+export type PlaidAccountStatus = {
+  linked: boolean;
+  institution_name?: string | null;
+  last_synced_at?: string | null;
+  last_balance_at?: string | null;
+  mask?: string | null;
+  status?: 'active' | 'error' | 'disconnected';
 };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -98,12 +108,43 @@ export async function exchangePlaidPublicToken(input: {
   return parseJson<ExchangeResponse>(response);
 }
 
-export async function syncPlaidTransactions(): Promise<PlaidSyncResponse> {
+async function requestPlaidSync(delphiAccountId?: string): Promise<PlaidSyncResponse> {
   const response = await fetch(`${API_BASE}/api/plaid/sync`, {
     method: 'POST',
     headers: await authHeaders(),
+    body: JSON.stringify(
+      delphiAccountId ? { delphi_account_id: delphiAccountId } : {},
+    ),
   });
   return parseJson<PlaidSyncResponse>(response);
+}
+
+export async function syncPlaidTransactions(): Promise<PlaidSyncResponse> {
+  return requestPlaidSync();
+}
+
+export async function syncPlaidAccount(accountId: string): Promise<PlaidSyncResponse> {
+  return requestPlaidSync(accountId);
+}
+
+export async function getPlaidAccountStatus(accountId: string): Promise<PlaidAccountStatus> {
+  const response = await fetch(
+    `${API_BASE}/api/plaid/account-status?account_id=${encodeURIComponent(accountId)}`,
+    {
+      method: 'GET',
+      headers: await authHeaders(),
+    },
+  );
+  return parseJson<PlaidAccountStatus>(response);
+}
+
+export function usePlaidAccountStatus(accountId: string | null | undefined) {
+  return useQuery({
+    queryKey: [...PLAID_ACCOUNT_STATUS_KEY, accountId],
+    queryFn: () => getPlaidAccountStatus(accountId!),
+    enabled: Boolean(accountId),
+    staleTime: 30_000,
+  });
 }
 
 export function usePlaidRefresh() {
@@ -115,6 +156,7 @@ export function usePlaidRefresh() {
       queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY }),
       queryClient.invalidateQueries({ queryKey: ['spending'] }),
       queryClient.invalidateQueries({ queryKey: CASHFLOW_KEY }),
+      queryClient.invalidateQueries({ queryKey: PLAID_ACCOUNT_STATUS_KEY }),
     ]);
   };
 }
