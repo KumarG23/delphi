@@ -14,6 +14,12 @@ export type AuthenticatedUser = {
   email?: string;
 };
 
+export async function parseOptionalJsonResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
+  if (!text.trim()) return undefined as T;
+  return JSON.parse(text) as T;
+}
+
 export async function requireUser(req: VercelRequest): Promise<AuthenticatedUser> {
   const authorization = req.headers.authorization;
   if (!authorization?.startsWith('Bearer ')) {
@@ -52,6 +58,8 @@ export async function supabaseAdmin<T>(
     throw new Error(`Supabase admin request failed (${response.status}): ${detail}`);
   }
 
-  if (response.status === 204) return undefined as T;
-  return (await response.json()) as T;
+  // PostgREST commonly returns 201/200 with an empty body when callers use
+  // `Prefer: return=minimal`. Treat an empty successful response as success
+  // instead of attempting JSON.parse('') and throwing after the write landed.
+  return parseOptionalJsonResponse<T>(response);
 }
