@@ -50,6 +50,25 @@ export function useTransactions(filters?: TransactionFilters) {
   });
 }
 
+export function useRecentAccountTransactions(accountId: string | null | undefined, limit = 8) {
+  return useQuery({
+    queryKey: [...TRANSACTIONS_KEY, 'recent-account', accountId, limit],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('is_active', true)
+        .eq('account_id', accountId!)
+        .order('transaction_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (error) throw error;
+      return data as Transaction[];
+    },
+    enabled: Boolean(accountId),
+  });
+}
+
 export function useCategories() {
   return useQuery({
     queryKey: CATEGORIES_KEY,

@@ -14,6 +14,7 @@ type PlaidItemRow = {
 };
 
 type PlaidAccountRow = {
+  plaid_item_id: string;
   plaid_account_id: string;
   delphi_account_id: string | null;
 };
@@ -42,6 +43,10 @@ type ItemSyncResult = {
   skipped: number;
   success: boolean;
   error?: string;
+};
+
+type Body = {
+  delphi_account_id?: string;
 };
 
 function categoryKey(type: 'expense' | 'income', name: string): string {
@@ -201,18 +206,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const user = await requireUser(req);
     const userId = encodeURIComponent(user.id);
+    const { delphi_account_id } = (req.body ?? {}) as Body;
 
-    const [items, plaidAccounts, categoryRows] = await Promise.all([
+    const [allItems, plaidAccounts, categoryRows] = await Promise.all([
       supabaseAdmin<PlaidItemRow[]>(
         `plaid_items?user_id=eq.${userId}&status=eq.active&select=id,access_token,transactions_cursor`,
       ),
       supabaseAdmin<PlaidAccountRow[]>(
-        `plaid_accounts?user_id=eq.${userId}&is_active=eq.true&select=plaid_account_id,delphi_account_id`,
+        `plaid_accounts?user_id=eq.${userId}&is_active=eq.true&select=plaid_item_id,plaid_account_id,delphi_account_id`,
       ),
       supabaseAdmin<CategoryRow[]>(
         `categories?user_id=eq.${userId}&is_active=eq.true&select=id,name,type`,
       ),
     ]);
+
+    // Plaid transaction sync is Item-scoped. When the UI asks to sync one
+    // Delphi account, sync only the Plaid Item that owns that account. Other
+    // accounts from the same bank Item may update too, which matches Plaid's
+    // model and avoids syncing unrelated institutions.
+    const targetItemIds = delphi_account_id
+      ? new Set(
+          plaidAccounts
+            .filter((account) => account.delphi_account_id === delphi_account_id)
+            .map((account) => account.plaid_item_id),
+        )
+      : null;
+
+    const items = targetItemIds
+      ? allItems.filter((item) => targetItemIds.has(item.id))
+      : allItems;
 
     if (items.length === 0) {
       return res.status(200).json({
