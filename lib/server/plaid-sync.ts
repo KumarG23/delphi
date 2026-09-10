@@ -1,3 +1,4 @@
+import { refreshPlaidItemBalances } from './plaid-balance';
 import { plaidRequest } from './plaid';
 import {
   normalizePlaidTransaction,
@@ -51,7 +52,10 @@ export type ItemSyncResult = {
   modified: number;
   removed: number;
   skipped: number;
+  balances_refreshed: number;
+  balance_snapshots_saved: number;
   success: boolean;
+  balance_warning?: string;
   error?: string;
 };
 
@@ -63,6 +67,8 @@ export type PlaidSyncResult = {
   modified: number;
   removed: number;
   skipped: number;
+  balances_refreshed: number;
+  balance_snapshots_saved: number;
   results: ItemSyncResult[];
 };
 
@@ -241,6 +247,27 @@ export async function syncPlaidItem(
       await markRemoved(item.user_id, removed.transaction_id);
     }
 
+    // Keep balances and Delphi snapshots current whenever the Item is synced.
+    // This uses Plaid's free cached Accounts data; a balance refresh failure is
+    // secondary to transaction correctness and should not prevent cursor advance.
+    let balancesRefreshed = 0;
+    let balanceSnapshotsSaved = 0;
+    let balanceWarning: string | undefined;
+    try {
+      const balanceResult = await refreshPlaidItemBalances({
+        userId: item.user_id,
+        plaidItemId: item.id,
+        accessToken: item.access_token,
+      });
+      balancesRefreshed = balanceResult.refreshed;
+      balanceSnapshotsSaved = balanceResult.snapshots_saved;
+    } catch (balanceError) {
+      balanceWarning = balanceError instanceof Error
+        ? balanceError.message
+        : 'Could not refresh cached Plaid balances';
+      console.error('Plaid balance refresh error', item.id, balanceError);
+    }
+
     await advanceCursor(item, pages.nextCursor);
 
     return {
@@ -249,7 +276,10 @@ export async function syncPlaidItem(
       modified: pages.modified.length,
       removed: pages.removed.length,
       skipped,
+      balances_refreshed: balancesRefreshed,
+      balance_snapshots_saved: balanceSnapshotsSaved,
       success: true,
+      ...(balanceWarning ? { balance_warning: balanceWarning } : {}),
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown Plaid sync error';
@@ -273,6 +303,8 @@ export async function syncPlaidItem(
       modified: 0,
       removed: 0,
       skipped: 0,
+      balances_refreshed: 0,
+      balance_snapshots_saved: 0,
       success: false,
       error: message,
     };
@@ -286,8 +318,17 @@ function summarize(results: ItemSyncResult[]): PlaidSyncResult {
       modified: sum.modified + result.modified,
       removed: sum.removed + result.removed,
       skipped: sum.skipped + result.skipped,
+      balances_refreshed: sum.balances_refreshed + result.balances_refreshed,
+      balance_snapshots_saved: sum.balance_snapshots_saved + result.balance_snapshots_saved,
     }),
-    { added: 0, modified: 0, removed: 0, skipped: 0 },
+    {
+      added: 0,
+      modified: 0,
+      removed: 0,
+      skipped: 0,
+      balances_refreshed: 0,
+      balance_snapshots_saved: 0,
+    },
   );
 
   return {
