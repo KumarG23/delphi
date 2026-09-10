@@ -21,6 +21,7 @@ import { fmtCurrencyFull, fmtTooltipDate } from '@/lib/format';
 import { LogBalanceSheet } from '@/components/LogBalanceSheet';
 import { EditAccountSheet } from '@/components/EditAccountSheet';
 import { TrendChart } from '@/components/TrendChart';
+import { AccountActivityPanel } from '@/components/AccountActivityPanel';
 import {
   categoryColor,
   fontSize,
@@ -168,6 +169,8 @@ export default function AccountDetailScreen() {
           </Text>
         </View>
 
+        <AccountActivityPanel accountId={account.id} />
+
         {/* Balance history + chart */}
         <Text style={styles.sectionLabel}>Balance history</Text>
         {chartData.length >= 2 ? (
@@ -179,7 +182,7 @@ export default function AccountDetailScreen() {
             <Text style={styles.placeholderText}>
               {chartData.length === 0
                 ? 'Log account balances to see your trend'
-                : 'Log one more balance to start tracking your trend.'}
+                : 'One more balance point will start your trend.'}
             </Text>
           </View>
         )}
@@ -259,7 +262,7 @@ export default function AccountDetailScreen() {
           )}
         </View>
 
-        {/* Actions */}
+        {/* Manual fallback + account metadata */}
         <View style={styles.actions}>
           <Pressable
             style={({ pressed }) => [
@@ -285,7 +288,6 @@ export default function AccountDetailScreen() {
         <View style={{ height: space['16'] }} />
       </ScrollView>
 
-      {/* Reused sheets (no new tables) */}
       <LogBalanceSheet
         account={account}
         visible={logOpen}
