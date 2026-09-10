@@ -60,7 +60,12 @@ export function normalizePlaidTransaction(
 ): NormalizedPlaidTransaction {
   const primary = upper(transaction.personal_finance_category?.primary);
   const detailed = upper(transaction.personal_finance_category?.detailed);
-  const isTransfer = primary === 'TRANSFER_IN' || primary === 'TRANSFER_OUT';
+
+  // Transfers and debt/card payments move money between accounts rather than
+  // representing new spending. Delphi excludes `transfer` rows from cash-flow
+  // totals, preventing a card purchase and the later card payment from both
+  // being counted as expenses when both accounts are connected.
+  const isTransfer = ['TRANSFER_IN', 'TRANSFER_OUT', 'LOAN_PAYMENTS'].includes(primary);
   const isIncome = !isTransfer && transaction.amount < 0;
   const kind: DelphiTransactionKind = isTransfer
     ? 'transfer'
@@ -68,7 +73,7 @@ export function normalizePlaidTransaction(
       ? 'income'
       : 'expense';
 
-  const looksLikeRefund = !['', 'INCOME', 'TRANSFER_IN', 'TRANSFER_OUT'].includes(primary);
+  const looksLikeRefund = !['', 'INCOME', 'TRANSFER_IN', 'TRANSFER_OUT', 'LOAN_PAYMENTS'].includes(primary);
   const categoryName = kind === 'transfer'
     ? null
     : kind === 'income'
