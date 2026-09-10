@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 
+import { PlaidConnectButton } from '@/components/PlaidConnectButton';
 import {
   ACCOUNT_TYPE_LABELS,
   CATEGORY_LABELS,
@@ -67,6 +68,15 @@ export function AddAccountSheet({ visible, onClose }: Props) {
   function handleClose() {
     reset();
     onClose();
+  }
+
+  async function handlePlaidConnected(accountCount: number) {
+    const suffix = accountCount === 1 ? 'account' : 'accounts';
+    await infoDialog(
+      'Bank connected',
+      `Delphi connected ${accountCount} ${suffix}. Their current balances are ready to use.`,
+    );
+    handleClose();
   }
 
   function goBack() {
@@ -146,10 +156,22 @@ export function AddAccountSheet({ visible, onClose }: Props) {
               </Pressable>
             </View>
 
-            {/* Step 1 — Category */}
+            {/* Step 1 — Connect or choose a manual category */}
             {step === 1 && (
-              <View style={styles.stepBody}>
-                <Text style={styles.prompt}>What kind of account?</Text>
+              <ScrollView
+                contentContainerStyle={styles.stepBody}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.prompt}>Connect automatically or add an account manually.</Text>
+
+                <PlaidConnectButton onConnected={handlePlaidConnected} />
+
+                <View style={styles.orRow}>
+                  <View style={styles.orLine} />
+                  <Text style={styles.orText}>OR ADD MANUALLY</Text>
+                  <View style={styles.orLine} />
+                </View>
+
                 <View style={styles.categoryList}>
                   {CATEGORIES.map(({ key, emoji, description }) => {
                     const color = categoryColor[key];
@@ -175,7 +197,7 @@ export function AddAccountSheet({ visible, onClose }: Props) {
                     );
                   })}
                 </View>
-              </View>
+              </ScrollView>
             )}
 
             {/* Step 2 — Account Type */}
@@ -342,6 +364,23 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: T.textMuted,
     marginBottom: space['8'],
+  },
+  orRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space['4'],
+    marginVertical: space['8'],
+  },
+  orLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: T.border,
+  },
+  orText: {
+    color: T.textDim,
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    letterSpacing: letterSpacing.widest,
   },
   categoryList: {
     gap: space['4'],
