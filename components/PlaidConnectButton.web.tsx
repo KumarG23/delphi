@@ -6,7 +6,7 @@ import { infoDialog } from '@/lib/dialog';
 import {
   createPlaidLinkToken,
   exchangePlaidPublicToken,
-  usePlaidRefresh,
+  usePlaidSync,
 } from '@/lib/plaid';
 
 const T = themeDark;
@@ -77,7 +77,7 @@ interface Props {
 
 export function PlaidConnectButton({ onConnected }: Props) {
   const [isLoading, setIsLoading] = useState(false);
-  const refreshFinancialData = usePlaidRefresh();
+  const syncTransactions = usePlaidSync();
 
   async function handleConnect() {
     if (isLoading) return;
@@ -102,7 +102,11 @@ export function PlaidConnectButton({ onConnected }: Props) {
               institutionId: metadata.institution?.institution_id,
               institutionName: metadata.institution?.name,
             });
-            await refreshFinancialData();
+
+            // Plaid can need a few seconds before initial Transactions data is
+            // ready. This first sync is opportunistic; the Accounts screen also
+            // exposes Sync banks so the user can pull the historical update later.
+            await syncTransactions.mutateAsync();
             onConnected?.(result.accounts.length);
           } catch (error) {
             await infoDialog('Could not connect bank', (error as Error).message);

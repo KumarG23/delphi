@@ -1,8 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { ACCOUNTS_KEY } from './accounts';
 import { NET_WORTH_KEY } from './dashboard';
+import { CASHFLOW_KEY } from './spending';
 import { supabase } from './supabase';
+import { TRANSACTIONS_KEY } from './transactions';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? '';
 
@@ -27,6 +29,25 @@ export type PlaidExchangeAccount = {
 type ExchangeResponse = {
   item_id: string;
   accounts: PlaidExchangeAccount[];
+};
+
+export type PlaidSyncResponse = {
+  linked_items: number;
+  successful_items: number;
+  failed_items: number;
+  added: number;
+  modified: number;
+  removed: number;
+  skipped: number;
+  results: Array<{
+    item_id: string;
+    added: number;
+    modified: number;
+    removed: number;
+    skipped: number;
+    success: boolean;
+    error?: string;
+  }>;
 };
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -77,12 +98,31 @@ export async function exchangePlaidPublicToken(input: {
   return parseJson<ExchangeResponse>(response);
 }
 
+export async function syncPlaidTransactions(): Promise<PlaidSyncResponse> {
+  const response = await fetch(`${API_BASE}/api/plaid/sync`, {
+    method: 'POST',
+    headers: await authHeaders(),
+  });
+  return parseJson<PlaidSyncResponse>(response);
+}
+
 export function usePlaidRefresh() {
   const queryClient = useQueryClient();
   return async () => {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ACCOUNTS_KEY }),
       queryClient.invalidateQueries({ queryKey: NET_WORTH_KEY }),
+      queryClient.invalidateQueries({ queryKey: TRANSACTIONS_KEY }),
+      queryClient.invalidateQueries({ queryKey: ['spending'] }),
+      queryClient.invalidateQueries({ queryKey: CASHFLOW_KEY }),
     ]);
   };
+}
+
+export function usePlaidSync() {
+  const refreshFinancialData = usePlaidRefresh();
+  return useMutation({
+    mutationFn: syncPlaidTransactions,
+    onSuccess: refreshFinancialData,
+  });
 }
