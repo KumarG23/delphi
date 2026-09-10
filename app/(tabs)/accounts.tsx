@@ -16,7 +16,9 @@ import {
   CATEGORY_LABELS,
   useAccounts,
 } from '@/lib/accounts';
+import { infoDialog } from '@/lib/dialog';
 import { fmtCurrencyFull } from '@/lib/format';
+import { usePlaidSync } from '@/lib/plaid';
 import {
   categoryColor,
   components,
@@ -101,6 +103,7 @@ function SectionHeader({
 export default function AccountsScreen() {
   const { data: accounts, isLoading, error } = useAccounts();
   const router = useRouter();
+  const plaidSync = usePlaidSync();
 
   const [addOpen, setAddOpen] = useState(false);
 
@@ -118,16 +121,58 @@ export default function AccountsScreen() {
 
   const hasAccounts = accounts && accounts.length > 0;
 
+  async function handleSyncBanks() {
+    try {
+      const result = await plaidSync.mutateAsync();
+      if (result.linked_items === 0) {
+        await infoDialog('No linked banks', 'Connect a bank with Plaid first, then Delphi can sync it here.');
+        return;
+      }
+
+      if (result.failed_items > 0) {
+        await infoDialog(
+          'Bank sync incomplete',
+          `${result.successful_items} of ${result.linked_items} bank connections synced. ${result.failed_items} need another try.`,
+        );
+        return;
+      }
+
+      const changed = result.added + result.modified + result.removed;
+      const message = changed === 0
+        ? 'Everything is already up to date.'
+        : `${result.added} new, ${result.modified} updated, and ${result.removed} removed transaction${changed === 1 ? '' : 's'} processed.`;
+      await infoDialog('Banks synced', message);
+    } catch (syncError) {
+      await infoDialog('Could not sync banks', (syncError as Error).message);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       {/* Screen header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Accounts</Text>
-        {accounts && (
-          <Text style={styles.subtitle}>
-            {accounts.length} account{accounts.length !== 1 ? 's' : ''}
-          </Text>
-        )}
+        <View style={styles.headerCopy}>
+          <Text style={styles.title}>Accounts</Text>
+          {accounts && (
+            <Text style={styles.subtitle}>
+              {accounts.length} account{accounts.length !== 1 ? 's' : ''}
+            </Text>
+          )}
+        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.syncBtn,
+            (pressed || plaidSync.isPending) && styles.pressed,
+          ]}
+          onPress={handleSyncBanks}
+          disabled={plaidSync.isPending}
+        >
+          {plaidSync.isPending ? (
+            <ActivityIndicator color={T.primary} size="small" />
+          ) : (
+            <Text style={styles.syncBtnText}>↻ Sync banks</Text>
+          )}
+        </Pressable>
       </View>
 
       {isLoading && (
@@ -206,11 +251,18 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: space['4'],
     paddingHorizontal: space['8'],
     paddingTop: space['6'],
     paddingBottom: space['4'],
+  },
+  headerCopy: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: space['4'],
+    flexShrink: 1,
   },
   title: {
     fontSize: fontSize['3xl'],
@@ -222,6 +274,22 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: T.textMuted,
     fontWeight: fontWeight.medium,
+  },
+  syncBtn: {
+    minHeight: 34,
+    minWidth: 92,
+    paddingHorizontal: space['4'],
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: T.border,
+    backgroundColor: T.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  syncBtnText: {
+    fontSize: fontSize.xs,
+    color: T.primary,
+    fontWeight: fontWeight.bold,
   },
   centered: {
     flex: 1,
