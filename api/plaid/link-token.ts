@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { plaidRequest } from '../../lib/server/plaid';
+import { PLAID_WEBHOOK_URL } from '../../lib/server/plaid-sync';
 import { requireUser } from '../../lib/server/supabase';
 
 type LinkTokenResponse = {
@@ -19,6 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       language: 'en',
       country_codes: ['US'],
       products: ['transactions'],
+      webhook: PLAID_WEBHOOK_URL,
       user: { client_user_id: user.id },
     });
 
