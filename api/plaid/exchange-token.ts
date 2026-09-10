@@ -1,32 +1,87 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 import { plaidRequest } from '../../lib/server/plaid';
+import { classifyPlaidAccount } from '../../lib/server/plaid-account-map';
 import { requireUser, supabaseAdmin } from '../../lib/server/supabase';
 
 type ExchangeResponse = { access_token: string; item_id: string };
-type AccountsResponse = {
-  accounts: Array<{
-    account_id: string;
-    name: string;
-    official_name: string | null;
-    mask: string | null;
-    type: string;
-    subtype: string | null;
-    balances: {
-      available: number | null;
-      current: number | null;
-      iso_currency_code: string | null;
-    };
-  }>;
+type PlaidAccount = {
+  account_id: string;
+  name: string;
+  official_name: string | null;
+  mask: string | null;
+  type: string;
+  subtype: string | null;
+  balances: {
+    available: number | null;
+    current: number | null;
+    iso_currency_code: string | null;
+  };
 };
-
+type AccountsResponse = { accounts: PlaidAccount[] };
 type PlaidItemRow = { id: string };
+type ExistingPlaidAccountRow = {
+  plaid_account_id: string;
+  delphi_account_id: string | null;
+};
+type DelphiAccountRow = { id: string };
 
 type Body = {
   public_token?: string;
   institution_id?: string | null;
   institution_name?: string | null;
 };
+
+async function ensureDelphiAccount(
+  userId: string,
+  plaidAccount: PlaidAccount,
+  institutionName: string | null,
+  existingDelphiAccountId?: string | null,
+): Promise<string> {
+  if (existingDelphiAccountId) return existingDelphiAccountId;
+
+  const classification = classifyPlaidAccount(plaidAccount.type, plaidAccount.subtype);
+  const created = await supabaseAdmin<DelphiAccountRow[]>('accounts', {
+    method: 'POST',
+    headers: { Prefer: 'return=representation' },
+    body: JSON.stringify({
+      user_id: userId,
+      name: plaidAccount.official_name || plaidAccount.name,
+      category: classification.category,
+      type: classification.type,
+      institution: institutionName,
+      currency: plaidAccount.balances.iso_currency_code || 'USD',
+      is_active: true,
+    }),
+  });
+
+  const id = created[0]?.id;
+  if (!id) throw new Error('Delphi account was not created');
+  return id;
+}
+
+async function saveBalanceSnapshot(
+  userId: string,
+  delphiAccountId: string,
+  balance: number | null,
+): Promise<void> {
+  if (balance === null || !Number.isFinite(balance)) return;
+
+  const snapshotDate = new Date().toISOString().slice(0, 10);
+  await supabaseAdmin('balance_snapshots?on_conflict=account_id,snapshot_date', {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({
+      user_id: userId,
+      account_id: delphiAccountId,
+      snapshot_date: snapshotDate,
+      balance,
+      entered_at: new Date().toISOString(),
+      is_active: true,
+      notes: 'Synced from Plaid',
+    }),
+  });
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -64,36 +119,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       access_token: exchanged.access_token,
     });
 
-    if (accountResponse.accounts.length > 0) {
+    const existingRows = await supabaseAdmin<ExistingPlaidAccountRow[]>(
+      `plaid_accounts?user_id=eq.${encodeURIComponent(user.id)}&plaid_item_id=eq.${encodeURIComponent(plaidItem.id)}&select=plaid_account_id,delphi_account_id`,
+    );
+    const existingByPlaidId = new Map(
+      existingRows.map((row) => [row.plaid_account_id, row.delphi_account_id]),
+    );
+
+    const now = new Date().toISOString();
+    const storedAccounts = [];
+
+    for (const account of accountResponse.accounts) {
+      const delphiAccountId = await ensureDelphiAccount(
+        user.id,
+        account,
+        institution_name ?? null,
+        existingByPlaidId.get(account.account_id),
+      );
+
       await supabaseAdmin('plaid_accounts?on_conflict=user_id,plaid_account_id', {
         method: 'POST',
         headers: {
           Prefer: 'resolution=merge-duplicates,return=minimal',
         },
-        body: JSON.stringify(
-          accountResponse.accounts.map((account) => ({
-            user_id: user.id,
-            plaid_item_id: plaidItem.id,
-            plaid_account_id: account.account_id,
-            name: account.name,
-            official_name: account.official_name,
-            mask: account.mask,
-            type: account.type,
-            subtype: account.subtype,
-            iso_currency_code: account.balances.iso_currency_code,
-            current_balance: account.balances.current,
-            available_balance: account.balances.available,
-            last_balance_at: new Date().toISOString(),
-            is_active: true,
-          })),
-        ),
+        body: JSON.stringify({
+          user_id: user.id,
+          plaid_item_id: plaidItem.id,
+          plaid_account_id: account.account_id,
+          delphi_account_id: delphiAccountId,
+          name: account.name,
+          official_name: account.official_name,
+          mask: account.mask,
+          type: account.type,
+          subtype: account.subtype,
+          iso_currency_code: account.balances.iso_currency_code,
+          current_balance: account.balances.current,
+          available_balance: account.balances.available,
+          last_balance_at: now,
+          is_active: true,
+        }),
       });
-    }
 
-    return res.status(200).json({
-      item_id: exchanged.item_id,
-      accounts: accountResponse.accounts.map((account) => ({
+      await saveBalanceSnapshot(user.id, delphiAccountId, account.balances.current);
+
+      storedAccounts.push({
         plaid_account_id: account.account_id,
+        delphi_account_id: delphiAccountId,
         name: account.name,
         official_name: account.official_name,
         mask: account.mask,
@@ -102,7 +173,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         current_balance: account.balances.current,
         available_balance: account.balances.available,
         iso_currency_code: account.balances.iso_currency_code,
-      })),
+      });
+    }
+
+    return res.status(200).json({
+      item_id: exchanged.item_id,
+      accounts: storedAccounts,
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
