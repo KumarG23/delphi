@@ -37,7 +37,7 @@ export function useCashflowHistory() {
 }
 
 export function useCurrentCashflow(month: string) {
-  return useQuery({
+  return useQuery<MonthlyCashflow | null>({
     queryKey: [...CASHFLOW_KEY, month],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -45,9 +45,20 @@ export function useCurrentCashflow(month: string) {
         .select('*')
         .eq('month', `${month}-01`)
         .single();
-      // PGRST116 = no rows found; treat as null rather than an error
+      // PGRST116 = no rows found; treat as null rather than an error.
       if (error && error.code !== 'PGRST116') throw error;
-      return data ?? null;
+      if (!data) return null;
+
+      // Postgres views do not preserve NOT NULL metadata, so Supabase generates
+      // nullable fields here even though this aggregate view always supplies
+      // these values. Normalize at the data boundary rather than throughout UI.
+      return {
+        user_id: data.user_id ?? '',
+        month: data.month ?? `${month}-01`,
+        total_income: data.total_income ?? 0,
+        total_expense: data.total_expense ?? 0,
+        net_cashflow: data.net_cashflow ?? 0,
+      };
     },
   });
 }
