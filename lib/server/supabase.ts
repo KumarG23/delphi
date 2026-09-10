@@ -2,7 +2,7 @@ import type { VercelRequest } from '@vercel/node';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseSecretKey = process.env.SUPABASE_SECRET_KEY;
 
 function required(value: string | undefined, name: string): string {
   if (!value) throw new Error(`${name} is not configured`);
@@ -37,12 +37,11 @@ export async function supabaseAdmin<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const key = required(serviceRoleKey, 'SUPABASE_SERVICE_ROLE_KEY');
+  const key = required(supabaseSecretKey, 'SUPABASE_SECRET_KEY');
   const response = await fetch(`${required(supabaseUrl, 'EXPO_PUBLIC_SUPABASE_URL')}/rest/v1/${path}`, {
     ...init,
     headers: {
       apikey: key,
-      Authorization: `Bearer ${key}`,
       'Content-Type': 'application/json',
       ...(init.headers ?? {}),
     },
