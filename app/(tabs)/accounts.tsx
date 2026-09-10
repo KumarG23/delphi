@@ -138,10 +138,13 @@ export default function AccountsScreen() {
       }
 
       const changed = result.added + result.modified + result.removed;
-      const message = changed === 0
-        ? 'Everything is already up to date.'
+      const transactionMessage = changed === 0
+        ? 'Transactions are already up to date.'
         : `${result.added} new, ${result.modified} updated, and ${result.removed} removed transaction${changed === 1 ? '' : 's'} processed.`;
-      await infoDialog('Banks synced', message);
+      const balanceMessage = result.balances_refreshed > 0
+        ? ` ${result.balances_refreshed} linked account balance${result.balances_refreshed === 1 ? '' : 's'} refreshed.`
+        : '';
+      await infoDialog('Banks synced', `${transactionMessage}${balanceMessage}`);
     } catch (syncError) {
       await infoDialog('Could not sync banks', (syncError as Error).message);
     }
