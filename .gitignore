@@ -38,6 +38,9 @@ __pycache__/
 .env
 .env*.local
 
+# local AI/editor settings
+.claude/settings.local.json
+
 # typescript
 *.tsbuildinfo
 
