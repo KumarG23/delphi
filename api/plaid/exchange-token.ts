@@ -25,6 +25,7 @@ type ExistingPlaidAccountRow = {
   delphi_account_id: string | null;
 };
 type DelphiAccountRow = { id: string };
+type SnapshotRow = { id: string };
 
 type Body = {
   public_token?: string;
@@ -64,23 +65,51 @@ async function saveBalanceSnapshot(
   userId: string,
   delphiAccountId: string,
   balance: number | null,
-): Promise<void> {
-  if (balance === null || !Number.isFinite(balance)) return;
+): Promise<boolean> {
+  if (balance === null || !Number.isFinite(balance)) return false;
 
   const snapshotDate = new Date().toISOString().slice(0, 10);
-  await supabaseAdmin('balance_snapshots?on_conflict=account_id,snapshot_date', {
+  const snapshotPayload = {
+    user_id: userId,
+    account_id: delphiAccountId,
+    snapshot_date: snapshotDate,
+    balance,
+    entered_at: new Date().toISOString(),
+    is_active: true,
+    notes: 'Synced from Plaid',
+  };
+
+  // Do not rely on PostgREST upsert conflict inference here. The initial Plaid
+  // implementation successfully created/mapped accounts but the snapshot upsert
+  // could fail after Link had already succeeded. An explicit read + update/insert
+  // keeps this operation idempotent and makes the success boundary clearer.
+  const existing = await supabaseAdmin<SnapshotRow[]>(
+    `balance_snapshots?account_id=eq.${encodeURIComponent(delphiAccountId)}&snapshot_date=eq.${encodeURIComponent(snapshotDate)}&select=id&limit=1`,
+  );
+
+  if (existing[0]?.id) {
+    await supabaseAdmin(
+      `balance_snapshots?id=eq.${encodeURIComponent(existing[0].id)}`,
+      {
+        method: 'PATCH',
+        headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          balance,
+          entered_at: snapshotPayload.entered_at,
+          is_active: true,
+          notes: snapshotPayload.notes,
+        }),
+      },
+    );
+    return true;
+  }
+
+  await supabaseAdmin('balance_snapshots', {
     method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify({
-      user_id: userId,
-      account_id: delphiAccountId,
-      snapshot_date: snapshotDate,
-      balance,
-      entered_at: new Date().toISOString(),
-      is_active: true,
-      notes: 'Synced from Plaid',
-    }),
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(snapshotPayload),
   });
+  return true;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -128,6 +157,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const now = new Date().toISOString();
     const storedAccounts = [];
+    const warnings: string[] = [];
 
     for (const account of accountResponse.accounts) {
       const delphiAccountId = await ensureDelphiAccount(
@@ -160,7 +190,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }),
       });
 
-      await saveBalanceSnapshot(user.id, delphiAccountId, account.balances.current);
+      let balance_saved = false;
+      try {
+        balance_saved = await saveBalanceSnapshot(
+          user.id,
+          delphiAccountId,
+          account.balances.current,
+        );
+      } catch (error) {
+        // A balance snapshot is secondary to the bank-link operation. Do not
+        // report the entire Plaid connection as failed after the Item/account
+        // have already been securely stored and mapped.
+        console.error('Plaid balance snapshot error', error);
+        warnings.push(`Could not save the initial balance for account ${account.account_id}.`);
+      }
 
       storedAccounts.push({
         plaid_account_id: account.account_id,
@@ -173,12 +216,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         current_balance: account.balances.current,
         available_balance: account.balances.available,
         iso_currency_code: account.balances.iso_currency_code,
+        balance_saved,
       });
     }
 
     return res.status(200).json({
       item_id: exchanged.item_id,
       accounts: storedAccounts,
+      warnings,
     });
   } catch (error) {
     if (error instanceof Error && error.message === 'UNAUTHORIZED') {
