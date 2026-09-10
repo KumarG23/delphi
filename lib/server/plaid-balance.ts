@@ -1,7 +1,7 @@
 import { plaidRequest } from './plaid';
 import { supabaseAdmin } from './supabase';
 
-type BalanceResponse = {
+type AccountsResponse = {
   accounts: Array<{
     account_id: string;
     balances: {
@@ -74,7 +74,12 @@ export async function refreshPlaidItemBalances(input: {
   plaidItemId: string;
   accessToken: string;
 }): Promise<PlaidBalanceRefreshResult> {
-  const response = await plaidRequest<BalanceResponse>('/accounts/balance/get', {
+  // `/accounts/get` is free and returns balances cached from Plaid's most recent
+  // successful Item update. Transactions Items refresh regularly, so this keeps
+  // Delphi's automatic snapshots fresh without turning every webhook/manual sync
+  // into a billed real-time Balance request. A deliberate real-time refresh can
+  // be added separately later if the user wants one.
+  const response = await plaidRequest<AccountsResponse>('/accounts/get', {
     access_token: input.accessToken,
   });
 
