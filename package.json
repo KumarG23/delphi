@@ -10,6 +10,7 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
+    "db:types": "npx supabase@latest gen types typescript --project-id tuzoowisycyvpsvkdtax --schema public > types/database.generated.ts",
     "check": "npm test && npm run typecheck && npm run lint && npx expo-doctor"
   },
   "dependencies": {
