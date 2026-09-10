@@ -26,6 +26,15 @@ export type PlaidBalanceRefreshResult = {
   skipped: number;
 };
 
+export function selectPlaidSnapshotBalance(input: {
+  current: number | null;
+  available: number | null;
+}): number | null {
+  if (input.current !== null && Number.isFinite(input.current)) return input.current;
+  if (input.available !== null && Number.isFinite(input.available)) return input.available;
+  return null;
+}
+
 async function saveBalanceSnapshot(input: {
   userId: string;
   delphiAccountId: string;
@@ -116,7 +125,7 @@ export async function refreshPlaidItemBalances(input: {
       const saved = await saveBalanceSnapshot({
         userId: input.userId,
         delphiAccountId: linked.delphi_account_id,
-        balance: account.balances.current,
+        balance: selectPlaidSnapshotBalance(account.balances),
         timestamp: now,
       });
       if (saved) snapshotsSaved += 1;
