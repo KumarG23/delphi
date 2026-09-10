@@ -40,13 +40,18 @@ export type PlaidSyncResponse = {
   modified: number;
   removed: number;
   skipped: number;
+  balances_refreshed: number;
+  balance_snapshots_saved: number;
   results: Array<{
     item_id: string;
     added: number;
     modified: number;
     removed: number;
     skipped: number;
+    balances_refreshed: number;
+    balance_snapshots_saved: number;
     success: boolean;
+    balance_warning?: string;
     error?: string;
   }>;
 };
