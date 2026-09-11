@@ -46,7 +46,6 @@ export function buildFinancialContext(input: FinancialContextInput): string {
   const today = intelligence?.asOfDate ?? new Date().toISOString().split('T')[0];
   lines.push(`Today's date: ${today}`);
 
-  // Net worth (latest) + 30-day change from history.
   if (netWorthHistory && netWorthHistory.length > 0) {
     const latest = netWorthHistory[netWorthHistory.length - 1];
     lines.push(`Net worth: ${fmtUSD(latest.net_worth)}`);
@@ -71,7 +70,6 @@ export function buildFinancialContext(input: FinancialContextInput): string {
 
   let cashTotalForCoverage: number | null = null;
 
-  // Account buckets + useful debt details.
   if (accounts && accounts.length > 0) {
     let debtTotal = 0;
     let cashTotal = 0;
@@ -126,48 +124,49 @@ export function buildFinancialContext(input: FinancialContextInput): string {
     }
   }
 
-  // Rich transaction intelligence, when available.
   if (intelligence) {
-    lines.push(
-      `Month-to-date cashflow (${intelligence.currentPeriodStart} through ${intelligence.asOfDate}): `
-      + `income ${fmtUSD(intelligence.currentMtdIncome)}, expenses ${fmtUSD(intelligence.currentMtdExpense)}, `
-      + `net ${fmtUSD(intelligence.currentMtdNet)}`,
-    );
+    if (intelligence.recentTransactionCount > 0) {
+      lines.push(
+        `Month-to-date cashflow (${intelligence.currentPeriodStart} through ${intelligence.asOfDate}): `
+        + `income ${fmtUSD(intelligence.currentMtdIncome)}, expenses ${fmtUSD(intelligence.currentMtdExpense)}, `
+        + `net ${fmtUSD(intelligence.currentMtdNet)}`,
+      );
 
-    if (intelligence.currentSavingsRatePct != null) {
-      lines.push(`Month-to-date savings rate: ${fmtPct(intelligence.currentSavingsRatePct)}`);
-    }
+      if (intelligence.currentSavingsRatePct != null) {
+        lines.push(`Month-to-date savings rate: ${fmtPct(intelligence.currentSavingsRatePct)}`);
+      }
 
-    lines.push(
-      `Same-point-last-month comparison (${intelligence.previousComparableStart} through ${intelligence.previousComparableEnd}): `
-      + `income ${fmtUSD(intelligence.previousComparableIncome)}, expenses ${fmtUSD(intelligence.previousComparableExpense)}, `
-      + `net ${fmtUSD(intelligence.previousComparableNet)}`,
-    );
+      lines.push(
+        `Same-point-last-month comparison (${intelligence.previousComparableStart} through ${intelligence.previousComparableEnd}): `
+        + `income ${fmtUSD(intelligence.previousComparableIncome)}, expenses ${fmtUSD(intelligence.previousComparableExpense)}, `
+        + `net ${fmtUSD(intelligence.previousComparableNet)}`,
+      );
 
-    if (intelligence.expenseChangePct != null) {
-      lines.push(`Expense change vs same point last month: ${fmtPct(intelligence.expenseChangePct)}`);
-    }
-    if (intelligence.incomeChangePct != null) {
-      lines.push(`Income change vs same point last month: ${fmtPct(intelligence.incomeChangePct)}`);
-    }
+      if (intelligence.expenseChangePct != null) {
+        lines.push(`Expense change vs same point last month: ${fmtPct(intelligence.expenseChangePct)}`);
+      }
+      if (intelligence.incomeChangePct != null) {
+        lines.push(`Income change vs same point last month: ${fmtPct(intelligence.incomeChangePct)}`);
+      }
 
-    if (intelligence.topSpendingCategories.length > 0) {
-      const categories = intelligence.topSpendingCategories
-        .map((category) => (
-          `${category.name} ${fmtUSD(category.total)} (${category.sharePct.toFixed(0)}% of MTD expenses)`
-        ))
-        .join('; ');
-      lines.push(`Top spending categories MTD: ${categories}`);
-    }
+      if (intelligence.topSpendingCategories.length > 0) {
+        const categories = intelligence.topSpendingCategories
+          .map((category) => (
+            `${category.name} ${fmtUSD(category.total)} (${category.sharePct.toFixed(0)}% of MTD expenses)`
+          ))
+          .join('; ');
+        lines.push(`Top spending categories MTD: ${categories}`);
+      }
 
-    if (intelligence.largestRecentExpenses.length > 0) {
-      const expenses = intelligence.largestRecentExpenses
-        .map((expense) => (
-          `${expense.date} ${expense.merchant} ${fmtUSD(expense.amount)}`
-          + (expense.category ? ` [${expense.category}]` : '')
-        ))
-        .join('; ');
-      lines.push(`Largest expenses in the last 30 days: ${expenses}`);
+      if (intelligence.largestRecentExpenses.length > 0) {
+        const expenses = intelligence.largestRecentExpenses
+          .map((expense) => (
+            `${expense.date} ${expense.merchant} ${fmtUSD(expense.amount)}`
+            + (expense.category ? ` [${expense.category}]` : '')
+          ))
+          .join('; ');
+        lines.push(`Largest expenses in the last 30 days: ${expenses}`);
+      }
     }
 
     if (
@@ -188,14 +187,12 @@ export function buildFinancialContext(input: FinancialContextInput): string {
       }
     }
   } else if (cashflow) {
-    // Fallback for older/partial data paths.
     lines.push(
       `This month's cashflow: income ${fmtUSD(cashflow.total_income)}, `
       + `expense ${fmtUSD(cashflow.total_expense)}, net ${fmtUSD(cashflow.net_cashflow)}`,
     );
   }
 
-  // Active goals, capped to keep prompt size predictable.
   const goals = input.goals ?? [];
   if (goals.length > 0) {
     lines.push('Goals:');
