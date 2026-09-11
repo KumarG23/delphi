@@ -39,6 +39,7 @@ export type FinancialIntelligence = {
   currentPeriodStart: string;
   previousComparableStart: string;
   previousComparableEnd: string;
+  recentTransactionCount: number;
   currentMtdIncome: number;
   currentMtdExpense: number;
   currentMtdNet: number;
@@ -131,6 +132,7 @@ export function deriveFinancialIntelligence(input: {
   const { today, transactions, categories, completedCashflowMonths } = input;
   const window = intelligenceWindow(today);
   const categoryNames = new Map(categories.map((category) => [category.id, category.name]));
+  const recentTransactionCount = transactions.filter((row) => row.kind !== 'transfer').length;
 
   const currentMtdIncome = sumKind(transactions, 'income', window.currentPeriodStart, today);
   const currentMtdExpense = sumKind(transactions, 'expense', window.currentPeriodStart, today);
@@ -207,6 +209,7 @@ export function deriveFinancialIntelligence(input: {
     currentPeriodStart: window.currentPeriodStart,
     previousComparableStart: window.previousComparableStart,
     previousComparableEnd: window.previousComparableEnd,
+    recentTransactionCount,
     currentMtdIncome,
     currentMtdExpense,
     currentMtdNet,
