@@ -15,6 +15,7 @@ import {
 import { useAccounts } from '@/lib/accounts';
 import { useAskDelphi, type ChatMessage } from '@/lib/askDelphi';
 import { buildFinancialContext } from '@/lib/askDelphi/context';
+import { useFinancialIntelligence } from '@/lib/askDelphi/intelligence';
 import { DELPHI_PERSONA } from '@/lib/askDelphi/persona';
 import { computeGoalProgress, useGoals } from '@/lib/goals';
 import { useCurrentCashflow } from '@/lib/spending';
@@ -69,6 +70,7 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
   const { data: goalsRaw = [] } = useGoals();
   const currentMonth = getCurrentMonth();
   const { data: cashflow } = useCurrentCashflow(currentMonth);
+  const { data: intelligence } = useFinancialIntelligence(visible);
 
   const ask = useAskDelphi();
   const isPending = ask.isPending;
@@ -83,7 +85,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
         { id: 'greeting', role: 'assistant', content: GREETING, isGreeting: true },
       ]);
       setInput('');
-      // Focus input shortly after open on platforms that support it
       const t = setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
@@ -101,19 +102,24 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
     }
   }, [messages, isPending, visible]);
 
-  // Full system message: persona FIRST (Ollama's request system message replaces
-  // the Modelfile SYSTEM), then the live financial snapshot (now including goals).
+  // Persona first, then deterministic live financial facts. The model explains
+  // and advises; Delphi does not have to calculate the core money metrics itself.
   function buildSystemMessage(): string {
     const goalProgresses = goalsRaw.map((goal) => ({
       goal,
       progress: computeGoalProgress(goal, { accounts, netWorthHistory }),
     }));
-    const snapshot = buildFinancialContext({ accounts, netWorthHistory, cashflow, goals: goalProgresses });
+    const snapshot = buildFinancialContext({
+      accounts,
+      netWorthHistory,
+      cashflow,
+      intelligence,
+      goals: goalProgresses,
+    });
     return `${DELPHI_PERSONA}\n\n## The user's current financial snapshot\n${snapshot}`;
   }
 
   function getPriorTurns(): ChatMessage[] {
-    // Only real (non-greeting) turns, as user/assistant. Cap to last 10.
     const real = messages.filter(m => !m.isGreeting);
     const capped = real.slice(-10);
     return capped.map((m) => ({
@@ -126,13 +132,11 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
     const trimmed = input.trim();
     if (!trimmed || isPending) return;
 
-    // Add the user message to UI immediately
     const userMsg: UIMessage = { id: makeId(), role: 'user', content: trimmed };
     const nextMessages = [...messages, userMsg];
     setMessages(nextMessages);
     setInput('');
 
-    // Build payload: fresh context + prior real turns + new user turn
     const contextMsg: ChatMessage = {
       role: 'system',
       content: buildSystemMessage(),
@@ -149,7 +153,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
       };
       setMessages((prev) => [...prev, assistantMsg]);
     } catch {
-      // Surface in-character error as an assistant bubble (never raw crash)
       const assistantErr: UIMessage = {
         id: makeId(),
         role: 'assistant',
@@ -160,7 +163,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
   }
 
   function handleClose() {
-    // Do not persist; conversation is ephemeral to the open sheet (per spec)
     onClose();
   }
 
@@ -183,7 +185,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
           <View style={styles.sheet}>
             <View style={styles.handle} />
 
-            {/* Header */}
             <View style={styles.sheetHeader}>
               <View style={styles.titleRow}>
                 <DelphiAvatar size={28} />
@@ -194,7 +195,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
               </Pressable>
             </View>
 
-            {/* Messages */}
             <ScrollView
               ref={scrollRef}
               style={styles.messagesScroll}
@@ -236,7 +236,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
                 );
               })}
 
-              {/* Typing indicator */}
               {isPending && (
                 <View style={[styles.bubbleRow, styles.bubbleRowAssistant]}>
                   <View style={styles.avatarWrap}>
@@ -251,7 +250,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
               )}
             </ScrollView>
 
-            {/* Input row (pinned bottom) */}
             <View style={styles.inputBar}>
               <TextInput
                 ref={inputRef}
@@ -266,7 +264,6 @@ export function AskDelphiSheet({ visible, onClose }: Props) {
                 returnKeyType="send"
                 onSubmitEditing={handleSend}
                 blurOnSubmit={false}
-                // Web: Enter sends, Shift+Enter inserts a newline (standard chat UX).
                 onKeyPress={(e: any) => {
                   if (
                     Platform.OS === 'web' &&
